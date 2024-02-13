@@ -32,7 +32,7 @@
 
 <script type="module">
   window.handleCopy = (e) => {
-    navigator.clipboard.writeText(e.target.value);
+    navigator.clipboard.writeText(unescape(e.target.value));
     const uniqueId = "BBBBBBBBBBBBBBBBBBBBBBB";
     const style =
       "margin: 10px auto; width: 80%; max-width: 1200px; z-index: 999; background-color: #E7F1ED";
@@ -69,7 +69,7 @@
         if (item.id) {
           cell2.insertAdjacentHTML(
             "afterbegin",
-            `<button type="button" onClick="handleCopy(event)" value=${item.id}>コピー</button>`
+            `<button type="button" onClick="handleCopy(event)" value=${escape(item.id)}>コピー</button>`
           );
         } else {
           cell2.innerHTML = "-";
@@ -78,7 +78,7 @@
         if (item.pw) {
           cell3.insertAdjacentHTML(
             "afterbegin",
-            `<button type="button" onClick="handleCopy(event)" value=${item.pw}>コピー</button>`
+            `<button type="button" onClick="handleCopy(event)" value=${escape(item.pw)}>コピー</button>`
           );
         } else {
           cell3.innerHTML = "-";
@@ -89,7 +89,7 @@
           `
       <a href="${item.link}" target="_blank" rel="noopener noreferrer">開く</a>
       <br>
-      <button type="button" onClick="handleCopy(event)" value=${item.link}>コピー</button>
+      <button type="button" onClick="handleCopy(event)" value=${escape(item.link)}>コピー</button>
       `
         );
         const cell5 = row.insertCell(4);
