@@ -40,13 +40,13 @@ function Excel() {
       for (counter; counter < rowCount + 1; counter++) {
         const row = _currentSheet.getRow(counter).values;
         if (_hasHeaders) {
-          const _obj = {}
-          _currentHeaders.forEach((header, index)=> {
-            _obj[header] = row[index]
-          })
-          yield _obj
+          const _obj = {};
+          _currentHeaders.forEach((header, index) => {
+            _obj[header] = row[index];
+          });
+          yield _obj;
         } else {
-          yield {...row}
+          yield { ...row };
         }
       }
     },
@@ -59,7 +59,7 @@ async function main() {
   (await excel.parse(TARGET_PATH, HAS_HEADER)).setSheet(TARGET_SHEET_POSITION);
   for await (const data of excel.getRows()) {
     // dataの中に1行1行取れるので好きに加工する
-    console.info(data)
+    console.info(data);
   }
 }
 

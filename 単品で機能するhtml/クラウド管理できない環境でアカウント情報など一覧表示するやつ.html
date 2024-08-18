@@ -1,11 +1,9 @@
-アカウント一覧
-
 <!DOCTYPE html>
 <html lang="jp">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>!!!!!!!</title>
+    <title>アカウント一覧</title>
   </head>
   <body>
     <div>
@@ -35,13 +33,13 @@
     navigator.clipboard.writeText(unescape(e.target.value));
     const uniqueId = "BBBBBBBBBBBBBBBBBBBBBBB";
     const style =
-      "margin: 10px auto; width: 80%; max-width: 1200px; z-index: 999; background-color: #E7F1ED";
+      "position: fixed; top: 0; margin: 10px auto; width: 80%; max-width: 1200px; z-index: 999; background-color: #E7F1ED";
     const input = `<div id="${uniqueId}" style="${style}" >コピーしました！</div>`;
     const body = document.getElementsByTagName("body")[0];
     body.insertAdjacentHTML("afterend", input);
     setTimeout(() => {
       document.getElementById(uniqueId).remove();
-    }, 2000);
+    }, 500);
   };
 
   /**
@@ -56,7 +54,7 @@
     }
   ]
   */
-  fetch("./data.json")
+  fetch("./クラウド管理できない環境でアカウント情報など一覧表示するやつ.json")
     .then((result) => result.json())
     .then((json) => {
       const table = document.getElementById("tBody");
