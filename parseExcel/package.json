@@ -1,0 +1,15 @@
+{
+  "name": "parse-excel",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "parse": "node index.js"
+  },
+  "author": "",
+  "license": "GPL-3.0-only",
+  "description": "parse excel example",
+  "dependencies": {
+    "excel": "^1.0.1",
+    "exceljs": "^4.4.0"
+  }
+}
