@@ -34,6 +34,14 @@ function Excel() {
     getHeaders: () => {
       return _currentHeaders;
     },
+    addHeader: (value, position) => {
+      if (position !== undefined) {
+        _currentHeaders[position] = value
+      } else {
+        _currentHeaders.push(value)
+      }
+      return self
+    },
     getRows: function* () {
       const rowCount = _currentSheet.rowCount;
       let counter = _hasHeaders ? 2 : 1;
