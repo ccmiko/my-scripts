@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="jp">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>火を絶やすな</title>
+</head>
+
+<body>
+  <main>
+    <div class="button-wrapper">
+      <button id="lock-button" value="true">ロックする</button>
+    </div>
+    <div class="text-wrapper">
+      <p>現在の状態: <span id="lock-status">ロックなし</span></p>
+      <p>経過時間: <span id="lock-elapsed-time">00:00:00</span></p>
+      <p id="description" style="display: none;"></p>
+    </div>
+  </main>
+</body>
+
+</html>
+
+<script type="module">
+  async function doLock() {
+  window.wakeLock = await navigator.wakeLock.request("screen");
+  document.getElementById("lock-button").textContent = "解除する";
+  document.getElementById("lock-button").value = "false";
+  document.getElementById("lock-status").textContent = "ロック中";
+  document.getElementById(
+    "description"
+  ).textContent = `${window.lockMinutes}分経過すると自動でロックを解除します`;
+  document.getElementById("description").style.display = "inline";
+  startTimeCount();
+  window.wakeLock.addEventListener("release", handleReleaseEvent);
+}
+
+async function doUnlock() {
+  await window.wakeLock.release();
+}
+
+function handleReleaseEvent() {
+  const buttonElem = document.getElementById("lock-button");
+  buttonElem.disabled = true;
+  document.getElementById("lock-button").textContent = "ロックする";
+  document.getElementById("lock-button").value = "true";
+  document.getElementById("lock-status").textContent = "未ロック";
+  document.getElementById("description").textContent = `ロックが解除されました`;
+  window.wakeLock = null;
+  window.lockMinutes = null;
+  stopTimeCount();
+
+  const timerId = setInterval(() => {
+    const color = document.body.style.backgroundColor;
+    if (color === "rgb(204, 255, 204)") {
+      document.body.style.backgroundColor = "rgb(242, 255, 204)";
+    } else {
+      document.body.style.backgroundColor = "rgb(204, 255, 204)";
+    }
+  }, 100);
+  setTimeout(() => {
+    clearInterval(timerId);
+    document.body.style.backgroundColor = "";
+    buttonElem.disabled = false;
+  }, 2 * 1000);
+}
+
+function startTimeCount() {
+  const time = {
+    hours: "00",
+    minutes: "00",
+    seconds: "00",
+  };
+  window.TimeCountId = setInterval(() => {
+    const seconds = Number(time.seconds) + 1;
+    if (seconds === 60) {
+      // 60秒までカウントしたら、分を+1して秒を00に戻す
+      time.seconds = "00";
+      time.minutes = String(Number(time.minutes) + 1).padStart(2, "0");
+      if (Number(time.minutes) === 60) {
+        // 60分までカウントしたら、時を+1して分を00に戻す
+        time.minutes = "00";
+        time.hours = String(Number(time.hours) + 1).padStart(2, "0");
+      }
+    } else {
+      // 1~59秒なら、秒を+1する
+      time.seconds = String(seconds).padStart(2, "0");
+    }
+    document.getElementById(
+      "lock-elapsed-time"
+    ).textContent = `${time.hours}:${time.minutes}:${time.seconds}`;
+  }, 1000);
+}
+
+function stopTimeCount() {
+  if (window.TimeCountId !== null) {
+    clearInterval(window.TimeCountId);
+    window.TimeCountId = null;
+  }
+  document.getElementById("lock-elapsed-time").textContent = "00:00:00";
+}
+
+async function handleButtonClick() {
+  const { value } = document.getElementById("lock-button");
+  try {
+    if (value === "true") {
+      const promptInput = window.prompt("何分ロックしますか？", 60);
+      if (
+        promptInput === null ||
+        promptInput === undefined ||
+        Number.isNaN(Number(promptInput)) ||
+        Number(promptInput) === 0
+      ) {
+        document.getElementById("description").textContent =
+          "設定をキャンセルしました";
+        document.getElementById("description").style.display = "inline";
+        return;
+      }
+      window.lockMinutes = Number(promptInput);
+      await doLock();
+      setTimeout(async () => {
+        await doUnlock();
+      }, window.lockMinutes * 1000 * 60);
+    } else {
+      await doUnlock();
+    }
+  } catch (error) {
+    window.alert(`エラー。 ${error.name}, ${error.message}`);
+  }
+}
+
+function init() {
+  window.wakeLock = null;
+  window.TimeCountId = null;
+  window.lockMinutes = 0;
+  document
+    .getElementById("lock-button")
+    .addEventListener("click", handleButtonClick);
+}
+
+init();
+
+</script>
