@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>画像から文字起こし隊！</title>
+</head>
+
+<body>
+  <div class="wrapper">
+    <div class="input-container">
+      <label id="uploader-label" for="uploader">
+        <div id="uploader-elem" class="uploader-label">OCRしたい画像を選択！</div>
+      </label>
+      <input type="file" id="uploader" accept="image/*" multiple style="display:none;">
+    </div>
+    <div id="status-container" class="status-container"></div>
+    <div id="show-ocr-result-container"></div>
+  </div>
+</body>
+
+<script type="module">
+  // API仕様 → https://github.com/naptha/tesseract.js/blob/master/docs/api.md
+  import tesseractJs from 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.esm.min.js'
+  // 引数をいじったらワンチャン文字起こし精度改善の可能性あり
+  const worker = await tesseractJs.createWorker(["jpn", "eng", "chi_tra"]);
+
+  const addCopyBtnElem = (lines, targetElem) => {
+    const btnElem = document.createElement("button")
+    btnElem.style.display = "inline"
+    btnElem.style.marginRight= "10px"
+    btnElem.textContent = "コピーする"
+    btnElem.addEventListener("click", () => {
+      const txt = lines.map(line => line.text).join("\n")
+      navigator.clipboard.writeText(txt);
+    })
+    targetElem.appendChild(btnElem)
+  }
+
+  const addCopyBtnWithoutBlankElem = (lines, targetElem) => {
+    const btnElem = document.createElement("button")
+    btnElem.style.display = "inline"
+    btnElem.textContent = "コピーする(空白削除)"
+    btnElem.addEventListener("click", () => {
+      const txt = lines.map(line => line.text.replace(/\s+/g, "")).join("\n")
+      navigator.clipboard.writeText(txt);
+    })
+    targetElem.appendChild(btnElem)
+  }
+
+  const showOcrResult = (file, lines) => {
+    const resultElem = document.getElementById("show-ocr-result-container")
+
+    const h2Elem = document.createElement("h2")
+    h2Elem.textContent = `ファイル名: ${file.name}`
+    resultElem.appendChild(h2Elem)
+    addCopyBtnElem(lines, resultElem)
+    addCopyBtnWithoutBlankElem(lines, resultElem)
+
+    const image = document.createElement("img");
+    image.style.display = "block"
+    image.src = URL.createObjectURL(file);
+    image.alt = image.title = file.name;
+    image.width = 500
+    image.height = 300
+    resultElem.appendChild(image)
+
+
+    const ulElem = document.createElement("ul")
+    lines.forEach(line => {
+      const liElem = document.createElement("li")
+      liElem.textContent = line.text
+      ulElem.appendChild(liElem)
+    })
+    resultElem.appendChild(ulElem)
+
+  }
+
+  const recognize = function (e) {
+    if (!e.target.files.length) {
+      return
+    }
+    const uploaderElem = document.getElementById('uploader');
+    uploaderElem.disabled = true
+    const resultElem = document.getElementById("show-ocr-result-container")
+    resultElem.textContent = ""
+    const statusElem = document.getElementById("status-container")
+    statusElem.textContent = ""
+    const ulElem = document.createElement("ul")
+    statusElem.appendChild(ulElem)
+
+    const createMsgWithTs = (msg) => {
+      const now = new Date()
+      return `【${now.toDateString()} ${now.toTimeString().slice(0, 8)}.${String(now.getMilliseconds()).padStart(3, "0")}】${msg}`
+    }
+
+    const addLiElem = (id, msg) => {
+      const liElem = document.createElement("li")
+      liElem.textContent = msg
+      liElem.id = id
+      ulElem.appendChild(liElem)
+    }
+
+    Promise.allSettled(Array.from(e.target.files).map((file, index) => {
+      // 無料だが、あまり精度が良くない
+      // 第2引数~をいじったらワンチャン文字起こし精度改善の可能性あり
+      return new Promise((resolve, _) => {
+        addLiElem(`analyze-${index}`, createMsgWithTs(`解析中ファイル: ${file.name}`))
+        resolve()
+      }).then(() => {
+        return worker.recognize(
+          file,
+          { rotateAuto: true },
+          { imageColor: true, imageGrey: true, imageBinary: true }
+        )
+      }).then((result) => {
+        addLiElem(`analyze-completed-${index}`, createMsgWithTs(`解析完了したファイル: ${file.name}`))
+        showOcrResult(file, result.data.lines)
+      })
+        .catch(e => {
+          console.error(e)
+          throw (e)
+        })
+    })).then(() => {
+      addLiElem(`analyze-completed-all`, createMsgWithTs(`全ての画像解析が完了`))
+      uploaderElem.disabled = false
+    })
+  }
+
+  const init = () => {
+    document.getElementById('uploader').addEventListener('change', recognize);
+  }
+
+  init()
+</script>
+
+<style>
+  .input-container {
+    width: 100%;
+  }
+
+  .uploader-label {
+    margin-left: auto;
+    margin-right: 20px;
+    width: fit-content;
+    font-size: 20px;
+    border-radius: 4px;
+    border: solid 1px;
+    border-color: #6de68974;
+    padding: 4px;
+    background-color: #a9e4b774;
+  }
+
+  .uploader-label:hover {
+    cursor: pointer;
+    opacity: 0.5;
+  }
+
+  .input-container {
+    position: fixed;
+  }
+
+  .status-container {
+    padding-top: 10px;
+  }
+
+  .show-ocr-result-container {
+    display: inline-block;
+  }
+</style>
+
+</html>

@@ -1,18 +1,21 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>書式スレイヤー=サン</title>
 </head>
-<body style="height: 100vh; display: flex; flex-flow: column; justify-content: center; align-items: center;">
+
+<body style="height: 90vh; display: flex; flex-flow: column; justify-content: center; align-items: center;">
   <p>↓に貼り付けた瞬間、テキストに付いている書式と空行を削除します</p>
-  <textarea id="textarea" cols="100" rows="20" style="border-width: 2px"></textarea>
+  <textarea id="textarea" style="border-width: 2px; width: 90%; height: 90%; font-size: 20px"></textarea>
 </body>
+
 </html>
 
 <script type="module">
-  document.getElementById("textarea").addEventListener("paste", () => {
+  document.getElementById("textarea").addEventListener("paste", (e) => {
     navigator.clipboard
       .readText()
       .then((clipText) => {

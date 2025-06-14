@@ -1,6 +1,8 @@
 {
   "cSpell.words": [
     "exceljs",
-    "KONAMI"
-  ]
+    "KONAMI",
+    "tesseract"
+  ],
+  "html.format.enable": true
 }
