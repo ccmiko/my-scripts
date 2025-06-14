@@ -8,7 +8,7 @@
 </head>
 
 <body style="height: 90vh; display: flex; flex-flow: column; justify-content: center; align-items: center;">
-  <p>↓に貼り付けた瞬間、テキストに付いている書式と空行を削除します</p>
+  <p>↓に貼り付けた瞬間、テキストに付いている書式を削除します</p>
   <textarea id="textarea" style="border-width: 2px; width: 90%; height: 90%; font-size: 20px"></textarea>
 </body>
 
@@ -20,7 +20,7 @@
       .readText()
       .then((clipText) => {
         navigator.clipboard.writeText(
-          clipText.replace(/^\s*\n/gm, "")
+          clipText
             .replace(/\t/gm, "")
             .trim()
         );
