@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ミニアプリたち</title>
+</head>
+
+<body>
+  <ul id="list">
+    <!-- jsでデータを挿入する -->
+  </ul>
+</body>
+
+</html>
+<script>
+  links = [
+    'account.html',
+    'style_slayer.html',
+    'medicine_management.html',
+    'fire_keeper.html',
+    'ocr.html',
+    'qr_reader_image.html',
+    'qr_reader_camera.html',
+    'mic.html',
+  ];
+  const parentElem = document.getElementById('list');
+  links.forEach((link) => {
+    parentElem.insertAdjacentHTML(
+      'beforeend',
+      `<li><a href="./${link}" target="_blank">${link}</a></li>`
+    );
+  });
+</script>
+<style>
+  li {
+    font-size: 20px;
+    margin: 10px 0;
+  }
+</style>

@@ -1,0 +1,9 @@
+[
+  {
+    "service": "app",
+    "id": "id",
+    "pw": "password",
+    "link": "http://localhost:4444/",
+    "note": "メモメモ"
+  }
+]

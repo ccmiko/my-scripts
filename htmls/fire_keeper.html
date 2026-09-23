@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="jp">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>火継</title>
+</head>
+
+<body>
+  <main>
+    <div class="button-wrapper">
+      <button id="lock-button" value="true">ロックする</button>
+      <p>スペースキー押下でもロックできます。ロック中はESCキーで解除できます。ロック解除時は音が鳴ります。</p>
+    </div>
+    <div class="text-wrapper">
+      <p>現在の状態: <span id="lock-status">ロックなし</span></p>
+      <p>経過時間: <span id="lock-elapsed-time">00:00:00</span></p>
+      <p id="description" style="display: none;"></p>
+    </div>
+  </main>
+</body>
+
+</html>
+
+<script type="module">
+  async function doLock() {
+    window.wakeLock = await navigator.wakeLock.request("screen");
+    document.getElementById("lock-button").textContent = "解除する";
+    document.getElementById("lock-button").value = "false";
+    document.getElementById("lock-status").textContent = "ロック中";
+    document.getElementById(
+      "description"
+    ).textContent = `${window.lockMinutes}分経過すると自動でロックを解除します`;
+    document.getElementById("description").style.display = "inline";
+    startTimeCount();
+    window.wakeLock.addEventListener("release", handleReleaseEvent);
+  }
+
+  async function doUnlock() {
+    await window.wakeLock.release();
+  }
+
+  function handleReleaseEvent() {
+    const buttonElem = document.getElementById("lock-button");
+    buttonElem.disabled = true;
+    document.getElementById("lock-button").textContent = "ロックする";
+    document.getElementById("lock-button").value = "true";
+    document.getElementById("lock-status").textContent = "未ロック";
+    document.getElementById("description").textContent = `ロックが解除されました`;
+    window.wakeLock = null;
+    window.lockMinutes = null;
+    stopTimeCount();
+
+    // ロック解除の効果音。ここはAI生成コードの丸コピ
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    function playStep(freq, startTime, duration) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.value = freq;
+      // 接続
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      const fadeTime = 0.02; // 20msのフェード（これでクリックノイズが消えます）
+      // --- 音量エンベロープの設定 ---
+      // 1. 開始時の音量を0にする
+      gain.gain.setValueAtTime(0, startTime);
+      // 2. fadeTimeかけて音量を1に上げる（フェードイン）
+      gain.gain.linearRampToValueAtTime(1, startTime + fadeTime);
+      // 3. 終了の少し前まで音量を維持
+      gain.gain.setValueAtTime(1, startTime + duration - fadeTime);
+      // 4. 最後にかけて音量を0に下げる（フェードアウト）
+      gain.gain.linearRampToValueAtTime(0, startTime + duration);
+      osc.start(startTime);
+      osc.stop(startTime + duration);
+    }
+    const now = ctx.currentTime;
+    const freqs = [523.25, 659.25, 783.99, 1046.5, 1318.51];
+    freqs.forEach((f, i) => {
+      playStep(f, now + i * 0.2, 0.2);
+    });
+
+    document.body.style.backgroundColor = "";
+    buttonElem.disabled = false;
+  }
+
+  function startTimeCount() {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+
+    window.TimeCountId = setInterval(() => {
+      date.setSeconds(date.getSeconds() + 1);
+      document.getElementById(
+        "lock-elapsed-time"
+      ).textContent = `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}:${date.getSeconds().toString().padStart(2, "0")}`;
+    }, 1000);
+  }
+
+  function stopTimeCount() {
+    if (window.TimeCountId !== null) {
+      clearInterval(window.TimeCountId);
+      window.TimeCountId = null;
+    }
+    document.getElementById("lock-elapsed-time").textContent = "00:00:00";
+  }
+
+  async function handleButtonClick() {
+    const { value } = document.getElementById("lock-button");
+    try {
+      if (value === "true") {
+        const promptInput = window.prompt("何分ロックしますか？", 60);
+        if (
+          promptInput === null ||
+          promptInput === undefined ||
+          Number.isNaN(Number(promptInput)) ||
+          Number(promptInput) === 0
+        ) {
+          document.getElementById("description").textContent =
+            "設定をキャンセルしました";
+          document.getElementById("description").style.display = "inline";
+          return;
+        }
+        window.lockMinutes = Number(promptInput);
+        await doLock();
+        setTimeout(async () => {
+          await doUnlock();
+        }, window.lockMinutes * 1000 * 60);
+      } else {
+        await doUnlock();
+      }
+    } catch (error) {
+      window.alert(`エラー。 ${error.name}, ${error.message}`);
+    }
+  }
+
+  function init() {
+    window.wakeLock = null;
+    window.TimeCountId = null;
+    window.lockMinutes = 0;
+    document
+      .getElementById("lock-button")
+      .addEventListener("click", handleButtonClick);
+    window.addEventListener("keydown", (event) => {
+      if (event.key === " ") {
+        // スペースキー
+        const isLocked = document.getElementById("lock-button").value === "false";
+        if (!isLocked) {
+          handleButtonClick();
+        }
+      } else if (event.key === "Escape") {
+        const isLocked = document.getElementById("lock-button").value === "false";
+        if (isLocked) {
+          handleButtonClick();
+        }
+      }
+    });
+  }
+
+  init();
+
+</script>

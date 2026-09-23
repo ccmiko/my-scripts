@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>服薬記録帳</title>
+</head>
+
+<body>
+  <div class="wrapper">
+    <div>
+      <button id="add" type="button">飲んだ！</button>
+      <button id="remove" type="button">間違えて押した！</button>
+      <button id="reset" type="button">リセット</button>
+    </div>
+    <div>
+      <!-- jsで今日の日付を挿入 -->
+      <h2 id="title"></h2>
+      <!-- jsで今日のお薬記録を挿入 -->
+      <ul id="list"></ul>
+      <!-- jsで今日のお薬記録なかったらメッセージ挿入 -->
+      <p id="message"></p>
+    </div>
+  </div>
+</body>
+
+</html>
+
+<script type="module">
+  const LOCAL_STORAGE_KEY = "MEDICINE";
+  const getStorage = (key) => {
+    const storage = window.localStorage.getItem(key);
+    return storage ? JSON.parse(storage) : {};
+  };
+  const getZeroTimeDay = (date, addDay = 0) => {
+    const newDate = new Date(date);
+    newDate.setDate(newDate.getDate() + addDay);
+    newDate.setHours(0);
+    newDate.setMinutes(0);
+    newDate.setSeconds(0);
+    newDate.setMilliseconds(0);
+    return newDate;
+  };
+  const toDateString = (date) => {
+    const newDate = new Date(date);
+    return `${newDate.toLocaleDateString("sv-SE")}(${"日月火水木金土".slice(
+      newDate.getDay(),
+      newDate.getDay() + 1
+    )})`;
+  };
+  const toDateTimeString = (date) => {
+    const newDate = new Date(date);
+    return `${toDateString(newDate)} ${newDate.toLocaleTimeString("sv-SE")}`;
+  };
+  const isNewDay = (lastRecordDay) => {
+    const now = getZeroTimeDay(new Date(), 0);
+    return now.getTime() > lastRecordDay.getTime()
+  };
+  const refreshRecords = (lastRecordDay, records) => {
+    window.localStorage.setItem(
+      LOCAL_STORAGE_KEY,
+      JSON.stringify({
+        lastRecordDay,
+        records,
+      })
+    );
+    const titleElem = document.getElementById("title");
+    const listElem = document.getElementById("list");
+    const messageElem = document.getElementById("message");
+    titleElem.innerHTML = "";
+    listElem.innerHTML = "";
+    messageElem.innerHTML = "";
+    titleElem.insertAdjacentHTML(
+      "beforeend",
+      `${toDateString(lastRecordDay)} のおくすり記録`
+    );
+    if (records.length === 0) {
+      messageElem.insertAdjacentHTML(
+        "beforeend",
+        "おくすり記録がありません"
+      );
+    } else {
+      records.forEach((record) => {
+        const stamping = toDateTimeString(record.stamping);
+        listElem.insertAdjacentHTML("beforeend", `<li>${stamping}</li>`);
+      });
+    }
+  };
+  const init = () => {
+    const medicines = getStorage(LOCAL_STORAGE_KEY)
+    if (!medicines?.lastRecordDay) {
+      refreshRecords(new Date(), []);
+      return
+    }
+    const lastRecordDay = getZeroTimeDay(medicines.lastRecordDay, 0);
+    if (isNewDay(lastRecordDay)) {
+      refreshRecords(new Date(), []);
+    } else {
+      refreshRecords(lastRecordDay, medicines.records);
+    }
+  };
+  document.getElementById("add").addEventListener("click", () => {
+    const medicines = getStorage(LOCAL_STORAGE_KEY)
+    const lastRecordDay = getZeroTimeDay(medicines.lastRecordDay, 0);
+    const now = new Date();
+    if (isNewDay(lastRecordDay)) {
+      refreshRecords(now, [{ stamping: now }]);
+    } else {
+      const records = [].concat(medicines?.records).filter((item) => item);
+      records.push({
+        stamping: now,
+      });
+      refreshRecords(lastRecordDay, records);
+    }
+  });
+  document.getElementById("remove").addEventListener("click", () => {
+    const medicines = getStorage(LOCAL_STORAGE_KEY)
+    if (!medicines?.records) {
+      return
+    }
+    const records = [].concat(medicines.records).filter((item) => item);
+    records.pop()
+    refreshRecords(medicines.lastRecordDay, records);
+  });
+  document.getElementById("reset").addEventListener("click", () => {
+    refreshRecords(new Date(), [])
+  });
+
+  init();
+</script>

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <title>QRコードリーダ(カメラ版)</title>
+</head>
+
+<body style="height: 90vh; display: flex; flex-flow: column; justify-content: center; align-items: center;">
+  <div class="h-full flex flex-col justify-center items-center">
+
+    <button id="button"
+      class="px-4 py-2.5 text-white bg-blue-500 rounded-md hover:opacity-80 active:border-blue-600 active:border-2 active:scale-105 cursor-pointer">カメラを起動する</button>
+    <div id="result" class="my-6">
+      <p class="text-base text-gray-500">これはQRコードリーダです。ここに読み取り結果が出力されます。</p>
+    </div>
+    <video id="video" class="max-w-[800px] max-h-[800px] bg-black"></video>
+  </div>
+</body>
+
+</html>
+
+<script type="module">
+  import QrScanner from 'https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.min.js'
+  // 関数を跨いで参照したい変数群
+  const VALUES = {
+    stream: null,
+    qrScanner: null,
+    videoDevices: [],
+    startingCamera: false,
+    buttonElem: null,
+    videoElem: null,
+    resultElem: null,
+  }
+
+  const randStr = () => {
+    const digits = 10;
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let str = "";
+    for (let i = 0; i < digits; i++) {
+      str += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return str;
+  }
+
+  const showSnackBar = (msg) => {
+    const uniqueId = randStr();
+    const style = "z-index: 1000; position: fixed; top: 0; left: 10px; " +
+      "width: fit-content; margin: 10px auto; padding: 6px; " +
+      "background-color: #E7F1ED; border-radius: 10px;";
+    const input = `<div id="${uniqueId}" style="${style}" >${msg}</div>`;
+    const body = document.getElementsByTagName("body")[0];
+    body.insertAdjacentHTML("afterend", input);
+    setTimeout(() => {
+      document.getElementById(uniqueId).remove();
+    }, 500);
+  }
+
+  const init = async () => {
+    VALUES.buttonElem = document.getElementById("button");
+    VALUES.videoElem = document.getElementById("video");
+    VALUES.resultElem = document.getElementById("result");
+    if (!VALUES.videoElem || !VALUES.buttonElem || !VALUES.resultElem) {
+      window.alert("HTMLタグを取得できません");
+      return;
+    }
+    VALUES.buttonElem.addEventListener("click", () => {
+      handleCamera();
+    });
+  };
+
+  const handleCamera = async () => {
+    if (VALUES.startingCamera) {
+      VALUES.startingCamera = false
+      stopCamera()
+      VALUES.buttonElem.textContent = "カメラを起動する";
+    } else {
+      VALUES.startingCamera = true
+      await startCamera()
+      VALUES.buttonElem.textContent = "カメラを停止する";
+    }
+  }
+
+  const startCamera = async () => {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    VALUES.videoDevices = devices.filter(
+      (device) => device.kind === "videoinput"
+    );
+    VALUES.stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        // カメラの選択
+        deviceId: VALUES.videoDevices[0].deviceId,
+      },
+    });
+    VALUES.qrScanner = new QrScanner(
+      VALUES.videoElem,
+      async (result) => {
+        // デコード成功時のコールバック
+        try {
+          if (VALUES.resultElem.children.length > 1) {
+            VALUES.resultElem.removeChild([...VALUES.resultElem.children].reverse()[0])
+          }
+          console.debug("decoded qr code:", result);
+          const url = new URL(result.data);
+          console.debug(`URL: ${url.href}`);
+
+          const containerElem = document.createElement("div")
+
+          const anchorElem = document.createElement("a")
+          anchorElem.className = "text-base text-blue-500"
+          anchorElem.href = url.href
+          anchorElem.textContent = url.href
+          anchorElem.target = "_blank"
+
+          const copyMacroElem = document.createElement("button")
+          copyMacroElem.className = "ml-2 px-2 text-base bg-green-400 text-white rounded-md hover:opacity-60 active:border-green-600 active:border-2 active:scale-105 cursor-pointer"
+          copyMacroElem.textContent = "URLをコピーする！"
+          copyMacroElem.addEventListener("click", () => {
+            navigator.clipboard.writeText(url.href)
+            showSnackBar("URLをコピーしました")
+          })
+
+          containerElem.appendChild(anchorElem)
+          containerElem.appendChild(copyMacroElem)
+          VALUES.resultElem.appendChild(containerElem)
+        } catch (e) {
+          console.error(e);
+          const msgElem = document.createElement("p")
+          msgElem.className = "text-base text-red-500 my-4"
+          if (e.message === "Failed to construct 'URL': Invalid URL") {
+            msgElem.textContent = "URLではないQRコードが読み取られました";
+          } else {
+            msgElem.textContent = "QRコードの読み取り処理に失敗しました";
+          }
+          VALUES.resultElem.appendChild(msgElem)
+        }
+      },
+      {
+        onDecodeError: (error) => {
+          // デコード失敗時のエラーコールバック
+          if (error === "No QR code found") {
+            // カメラにQRコードが写っていない場合は常にこのエラーが発生するため抑制
+            return;
+          }
+          console.error(error);
+        },
+      }
+    );
+
+    VALUES.videoElem.srcObject = VALUES.stream;
+    VALUES.videoElem.onloadedmetadata = () => {
+      VALUES.videoElem.play();
+    };
+    VALUES.qrScanner.start();
+  }
+
+  const stopCamera = () => {
+    if (VALUES.qrScanner) {
+      VALUES.qrScanner.stop();
+      VALUES.qrScanner.destroy();
+      VALUES.qrScanner = null
+    }
+    if (VALUES.stream) {
+      VALUES.stream.getVideoTracks().forEach((track) => {
+        track.stop();
+      });
+      VALUES.stream = null
+    }
+    if (VALUES.resultElem.children.length > 1) {
+      VALUES.resultElem.removeChild([...VALUES.resultElem.children].reverse()[0])
+    }
+  }
+
+
+  init()
+</script>

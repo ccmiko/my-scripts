@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>遅延再生くん</title>
+</head>
+
+<body>
+  <div>
+     <h1>遅延再生くん</h1>
+    <!-- <audio id="audio" controls></audio> -->
+    <button id="record-button" type="button">開始</button>
+    <button id="stop-button" type="button">停止</button>
+
+    メモ
+    <div>
+      TODO
+音量調整機能
+遅延時間調整機能
+https://medium.com/hackernoon/creative-coding-using-the-microphone-to-make-sound-reactive-art-part1-164fd3d972f3
+https://www.google.com/search?q=how+to+draw+reactive+sound+wave+at+microphone&sca_esv=c4d3b1b5b2456fed&ei=F_t4aLftM8aOvr0Poq-HuQ8&ved=0ahUKEwj31IKrgMSOAxVGh68BHaLXIfcQ4dUDCBA&uact=5&oq=how+to+draw+reactive+sound+wave+at+microphone&gs_lp=Egxnd3Mtd2l6LXNlcnAaAhgCIi1ob3cgdG8gZHJhdyByZWFjdGl2ZSBzb3VuZCB3YXZlIGF0IG1pY3JvcGhvbmUyBRAAGO8FMgUQABjvBTIFEAAY7wUyCBAAGIAEGKIEMgUQABjvBUjcaFD-B1jSZ3ACeAGQAQCYAa8BoAHaFaoBBDIuMjG4AQPIAQD4AQGYAhSgAqYRwgIKEAAYsAMY1gQYR8ICCBAAGKIEGIkFwgIFECEYoAHCAgoQIRgVGPgFGIsDwgIEECEYFZgDAIgGAZAGApIHBDQuMTagB9A1sgcEMi4xNrgHoRHCBwU1LjcuOMgHLw&sclient=gws-wiz-serp
+    </div>
+  </div>
+</body>
+
+</html>
+
+<script type="module">
+  document.addEventListener("DOMContentLoaded", (event) => {
+    // const audioElem = document.getElementById("audio")
+    const recordBtnElm = document.getElementById("record-button")
+    const stopBtnElm = document.getElementById("stop-button")
+
+
+
+    recordBtnElm.addEventListener("click", (e) => {
+      if (!window.localStream) {
+        navigator.mediaDevices
+          .getUserMedia({ video: false, audio: true })
+          .then((stream) => {
+            const audioCtx = new AudioContext();
+            const source = audioCtx.createMediaStreamSource(stream);
+
+            // 遅延再生
+            const maxDelayTime = parseFloat(10)
+            const delayTime = parseFloat(3)
+            const delayNode = audioCtx.createDelay(maxDelayTime);
+            delayNode.delayTime.value = parseFloat(delayTime)
+            source.connect(delayNode);
+            delayNode.connect(audioCtx.destination);
+
+            // ゲイン音量調整（試した感じ、効いている気がしない・・・）
+            // const gainNode = audioCtx.createGain();
+            // gainNode.gain.value = 0.5;
+            // source.connect(gainNode);
+            // delayNode.connect(gainNode);
+            // gainNode.connect(audioCtx.destination);
+
+
+            window.localStream = stream;
+            // audioタグに突っ込んでUI操作する場合
+            // audioElem.srcObject = stream;
+            // audioElem.autoplay = true;
+          })
+          .catch((err) => {
+            console.error(`you got an error: ${err}`);
+          });
+      }
+    })
+
+    stopBtnElm.addEventListener("click", (e) => {
+      if (!window.localStream) {
+        return
+      }
+      window.localStream.getTracks()
+        .forEach((track) => {
+          track.stop();
+        });
+      window.localStream = undefined;
+      // audioElem.srcObject = undefined;
+      // audioElem.autoplay = false;
+    })
+
+  });
+</script>

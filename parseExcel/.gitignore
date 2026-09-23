@@ -1,0 +1,5 @@
+# excelファイルは随時、配置すること
+*.xlsx
+*.xlsm
+*.xlsb
+*.xls

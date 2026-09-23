@@ -1,0 +1,11 @@
+name: miniApps
+
+services:
+  nginx:
+    image: nginx:stable-alpine-slim
+    container_name: miniApps
+    ports:
+      - 4444:80
+    volumes:
+      - ../htmls/:/var/www/
+      - ./.nginx/:/etc/nginx/conf.d/
