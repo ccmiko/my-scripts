@@ -29,21 +29,57 @@
 </html>
 
 <script type="module">
-  window.handleCopy = (e) => {
-    navigator.clipboard.writeText(unescape(e.target.value));
-    const uniqueId = "BBBBBBBBBBBBBBBBBBBBBBB";
-    const style =
+  const showCopiedMessage = () => {
+    const elem = document.createElement("div");
+    elem.style.cssText =
       "position: fixed; top: 0; margin: 10px auto; width: 80%; max-width: 1200px; z-index: 999; background-color: #E7F1ED";
-    const input = `<div id="${uniqueId}" style="${style}" >コピーしました！</div>`;
-    const body = document.getElementsByTagName("body")[0];
-    body.insertAdjacentHTML("afterend", input);
-    setTimeout(() => {
-      document.getElementById(uniqueId).remove();
-    }, 500);
+    elem.textContent = "コピーしました！";
+    document.body.appendChild(elem);
+    setTimeout(() => elem.remove(), 500);
+  };
+
+  const createCopyButton = (value) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = "コピー";
+    button.addEventListener("click", () => {
+      navigator.clipboard.writeText(value);
+      showCopiedMessage();
+    });
+    return button;
+  };
+
+  /** http(s)以外(javascript: 等)のURLは無効扱いにする */
+  const toSafeUrl = (link) => {
+    try {
+      const url = new URL(link);
+      return ["http:", "https:"].includes(url.protocol) ? url.href : null;
+    } catch {
+      return null;
+    }
+  };
+
+  /** 改行(\n または <br>)だけを反映し、それ以外はテキストとして表示する */
+  const appendMultilineText = (parent, text) => {
+    String(text ?? "")
+      .split(/<br\s*\/?>|\n/i)
+      .forEach((line, index) => {
+        if (index > 0) parent.appendChild(document.createElement("br"));
+        parent.appendChild(document.createTextNode(line));
+      });
+  };
+
+  const appendCopyCell = (row, value) => {
+    const cell = row.insertCell(-1);
+    if (value) {
+      cell.appendChild(createCopyButton(value));
+    } else {
+      cell.textContent = "-";
+    }
   };
 
   /**
-  想定しているJSONの形式
+  想定しているJSONの形式 (見本: account.sample.json)
   [
     {
       "service": "onlogin",
@@ -55,44 +91,45 @@
   ]
   */
   fetch("./account.json")
-    .then((result) => result.json())
+    .then((result) => {
+      if (!result.ok) {
+        throw new Error(`account.json を取得できません (${result.status})`);
+      }
+      return result.json();
+    })
     .then((json) => {
       const table = document.getElementById("tBody");
       json.forEach((item) => {
         const row = table.insertRow(-1);
-        const cell1 = row.insertCell(0);
-        cell1.innerHTML = item.service;
-        cell1.style.fontWeight = "bold";
-        const cell2 = row.insertCell(1);
-        if (item.id) {
-          cell2.insertAdjacentHTML(
-            "afterbegin",
-            `<button type="button" onClick="handleCopy(event)" value=${escape(item.id)}>コピー</button>`
-          );
+
+        const serviceCell = row.insertCell(-1);
+        serviceCell.textContent = item.service ?? "";
+        serviceCell.style.fontWeight = "bold";
+
+        appendCopyCell(row, item.id);
+        appendCopyCell(row, item.pw);
+
+        const linkCell = row.insertCell(-1);
+        const safeUrl = toSafeUrl(item.link);
+        if (safeUrl) {
+          const anchor = document.createElement("a");
+          anchor.href = safeUrl;
+          anchor.target = "_blank";
+          anchor.rel = "noopener noreferrer";
+          anchor.textContent = "開く";
+          linkCell.appendChild(anchor);
+          linkCell.appendChild(document.createElement("br"));
+          linkCell.appendChild(createCopyButton(safeUrl));
         } else {
-          cell2.innerHTML = "-";
+          linkCell.textContent = "-";
         }
-        const cell3 = row.insertCell(2);
-        if (item.pw) {
-          cell3.insertAdjacentHTML(
-            "afterbegin",
-            `<button type="button" onClick="handleCopy(event)" value=${escape(item.pw)}>コピー</button>`
-          );
-        } else {
-          cell3.innerHTML = "-";
-        }
-        const cell4 = row.insertCell(3);
-        cell4.insertAdjacentHTML(
-          "afterbegin",
-          `
-      <a href="${item.link}" target="_blank" rel="noopener noreferrer">開く</a>
-      <br>
-      <button type="button" onClick="handleCopy(event)" value=${escape(item.link)}>コピー</button>
-      `
-        );
-        const cell5 = row.insertCell(4);
-        cell5.innerHTML = item.note;
+
+        appendMultilineText(row.insertCell(-1), item.note);
       });
+    })
+    .catch((error) => {
+      console.error(error);
+      window.alert(`${error.message}\naccount.sample.json をコピーして account.json を作成してください`);
     });
 </script>
 
