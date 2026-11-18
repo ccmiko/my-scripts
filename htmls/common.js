@@ -79,5 +79,83 @@
     return containerElem;
   };
 
-  window.MiniApps = { showSnackBar, copyText, toHttpUrl, createQrResultElem };
+  /**
+   * 「ピロピロ」と音階を順に鳴らす(火継・ポモドーロの通知音)。
+   * @param {number} volume 0〜1
+   * @param {number[]} freqs 鳴らす周波数(Hz)の並び
+   */
+  const playChime = (volume, freqs = [523.25, 659.25, 783.99, 1046.5, 1318.51], stepSeconds = 0.2) => {
+    if (!(volume > 0)) {
+      return;
+    }
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // 全体の音量。各音のエンベロープ(0→1→0)の後段に掛ける
+    const masterGain = ctx.createGain();
+    masterGain.gain.value = volume;
+    masterGain.connect(ctx.destination);
+    const now = ctx.currentTime;
+    freqs.forEach((freq, i) => {
+      const startTime = now + i * stepSeconds;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.value = freq;
+      osc.connect(gain);
+      gain.connect(masterGain);
+      // 20ms のフェードイン・アウトでクリックノイズを防ぐ
+      const fadeTime = 0.02;
+      gain.gain.setValueAtTime(0, startTime);
+      gain.gain.linearRampToValueAtTime(1, startTime + fadeTime);
+      gain.gain.setValueAtTime(1, startTime + stepSeconds - fadeTime);
+      gain.gain.linearRampToValueAtTime(0, startTime + stepSeconds);
+      osc.start(startTime);
+      osc.stop(startTime + stepSeconds);
+    });
+    // 再生し終わったら AudioContext を解放する
+    setTimeout(() => ctx.close(), (freqs.length * stepSeconds + 0.5) * 1000);
+  };
+
+  /**
+   * 画面のスリープを防ぐ(Wake Lock API)。タブ非表示でブラウザに解除された場合は、表示復帰時に取り直す。
+   *   const keeper = MiniApps.createWakeLockKeeper({ onChange: (active) => ... });
+   *   await keeper.enable(); await keeper.disable();
+   * onChange には「実際にロックできているか」が渡される。
+   */
+  const createWakeLockKeeper = ({ onChange = () => {} } = {}) => {
+    let wanted = false;
+    let sentinel = null;
+    const acquire = async () => {
+      const current = await navigator.wakeLock.request("screen");
+      if (!wanted) {
+        await current.release();
+        return;
+      }
+      sentinel = current;
+      onChange(true);
+      current.addEventListener("release", () => {
+        if (sentinel === current) sentinel = null;
+        onChange(false);
+      });
+    };
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && wanted && !sentinel) {
+        acquire().catch((error) => console.error(error));
+      }
+    });
+    return {
+      isSupported: () => "wakeLock" in navigator,
+      enable: async () => {
+        wanted = true;
+        if (!sentinel) await acquire();
+      },
+      disable: async () => {
+        wanted = false;
+        const current = sentinel;
+        sentinel = null;
+        await current?.release();
+      },
+    };
+  };
+
+  window.MiniApps = { showSnackBar, copyText, toHttpUrl, createQrResultElem, playChime, createWakeLockKeeper };
 })();
