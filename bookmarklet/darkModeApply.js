@@ -6,7 +6,7 @@
  */
 
 function main() {
-  styles = `
+  const styles = `
   * {
   background-color: #202124 !important;
   color: #A9ACAF !important;
@@ -25,8 +25,8 @@ function main() {
     fill: #f1b963 !important;
   }
   `;
-  styleSheet = document.createElement("style");
-  id = "AAAAAAAAAAA";
+  const styleSheet = document.createElement("style");
+  const id = "AAAAAAAAAAA";
   styleSheet.id = id;
   styleSheet.textContent = styles;
   document.getElementById(id)?.remove();
