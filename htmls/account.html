@@ -112,8 +112,23 @@
 
     .panel textarea {
       width: 100%;
-      height: 8em;
+      height: 20em;
       font-family: monospace;
+    }
+
+    .guide {
+      border: 2px solid #2f9e44;
+    }
+
+    .guide ol {
+      margin: 4px 0;
+      padding-left: 1.4em;
+      line-height: 1.7;
+    }
+
+    .guide code,
+    .hint code {
+      font-size: 0.95em;
     }
 
     .warning {
@@ -161,6 +176,20 @@
     <code>account.enc.json</code> を作成し、<code>account.json</code> は削除することをおすすめします。
   </div>
 
+  <!-- データ(account.enc.json / account.json)が無い初回だけ表示する案内 -->
+  <div id="first-guide" class="panel guide" hidden>
+    <h2>👋 はじめに</h2>
+    <ol>
+      <li>下の表は<strong>サンプル</strong>です。その下の「JSON(平文)」欄のサンプルを、自分のアカウント情報に書き換えてください(書き換えると表にすぐ反映されます)。</li>
+      <li>マスターパスワードを2回入力して「暗号化して保存」を押すと、<code>account.enc.json</code> がダウンロードされます。</li>
+      <li>そのファイルを <code>htmls/</code> フォルダに置いてページを再読み込みすると、マスターパスワードで開けるようになります。</li>
+    </ol>
+    <p class="hint">
+      項目: <code>service</code> サービス名 / <code>id</code> ID / <code>pw</code> パスワード /
+      <code>link</code> ログイン画面などの URL(http(s) のみ) / <code>note</code> 備考(<code>\n</code> で改行)。使わない項目は省略できます。
+    </p>
+  </div>
+
   <div id="toolbar" class="toolbar" hidden>
     <span id="auto-lock-info" class="hint"></span>
     <button id="lock" type="button">ロックする</button>
@@ -168,9 +197,7 @@
 
   <div id="table-container" hidden>
     <table>
-      <caption>
-        アカウント一覧
-      </caption>
+      <caption id="table-caption">アカウント一覧</caption>
       <thead>
         <tr>
           <th>概要</th>
@@ -224,9 +251,34 @@
       tBody: document.getElementById("tBody"),
       encryptPanel: document.getElementById("encrypt-panel"),
       plainJson: document.getElementById("plain-json"),
+      firstGuide: document.getElementById("first-guide"),
+      tableCaption: document.getElementById("table-caption"),
       loadCurrent: document.getElementById("load-current"),
       encryptMessage: document.getElementById("encrypt-message"),
     };
+
+    /** 初回(データが無いとき)に表示・入力欄に入れておくサンプル */
+    const SAMPLE_ACCOUNTS = [
+      {
+        service: "メールサービス",
+        id: "taro@example.com",
+        pw: "sample-password-1",
+        link: "https://mail.example.com/login",
+        note: "2段階認証あり\n予備コードは手帳の最後のページ",
+      },
+      {
+        service: "ネット銀行",
+        id: "12345678",
+        pw: "sample-password-2",
+        link: "https://bank.example.com/",
+        note: "暗証番号は別管理",
+      },
+      {
+        service: "社内Wi-Fi(リンク・備考なしの例)",
+        id: "guest",
+        pw: "sample-password-3",
+      },
+    ];
 
     // ---------------------------------------------------------------- 暗号化
 
@@ -356,6 +408,8 @@
       accounts: null,
       /** 読み込んだ暗号化ファイル(平文運用時は null) */
       encrypted: null,
+      /** データが無く、入力欄の内容をサンプルとして表に映している状態 */
+      previewMode: false,
       autoLockTimer: null,
     };
 
@@ -418,7 +472,20 @@
       const file = event.target.files[0];
       if (file) elems.plainJson.value = await file.text();
       event.target.value = "";
+      renderPreview();
     });
+
+    /** 初回の案内中は、入力欄の JSON をそのまま表に映して書き方を確かめられるようにする */
+    const renderPreview = () => {
+      if (!state.previewMode) return;
+      try {
+        renderAccounts(JSON.parse(elems.plainJson.value || "[]"));
+        elems.encryptMessage.textContent = "";
+      } catch (error) {
+        elems.encryptMessage.textContent = `JSON の書き方が正しくありません(表は直前の内容のまま): ${error.message}`;
+      }
+    };
+    elems.plainJson.addEventListener("input", renderPreview);
 
     elems.loadCurrent.addEventListener("click", () => {
       if (state.accounts) elems.plainJson.value = JSON.stringify(state.accounts, null, 2);
@@ -493,8 +560,13 @@
           showUnlocked(plain);
           return;
         }
+        // 初回: 案内を出し、整形したサンプルを入力欄と表に入れた状態で始める
+        state.previewMode = true;
+        elems.firstGuide.hidden = false;
+        elems.tableCaption.textContent = "アカウント一覧(サンプル表示)";
+        elems.plainJson.value = JSON.stringify(SAMPLE_ACCOUNTS, null, 2);
+        renderAccounts(SAMPLE_ACCOUNTS);
         elems.encryptPanel.open = true;
-        throw new Error("account.enc.json も account.json も見つかりません。\n下の「暗号化ファイルを作る」で account.enc.json を作成してください");
       } catch (error) {
         console.error(error);
         window.alert(navigator.onLine ? error.message : "オフラインのためアカウント情報を読み込めません(アカウント情報はオフライン用に保存しません)");
