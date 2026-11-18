@@ -454,10 +454,17 @@
 
     // ---------------------------------------------------------------- 初期化
 
+    /** JSON を取得する。存在しない(404 や、サーバー設定により HTML が返る)場合は null */
     const fetchJson = async (path) => {
       const response = await fetch(path, { cache: "no-store" });
       if (!response.ok) return null;
-      return response.json();
+      const text = await response.text();
+      if (/^\s*</.test(text)) return null;
+      try {
+        return JSON.parse(text);
+      } catch (error) {
+        throw new Error(`${path.replace("./", "")} が JSON として正しくありません (${error.message})`);
+      }
     };
 
     const init = async () => {
