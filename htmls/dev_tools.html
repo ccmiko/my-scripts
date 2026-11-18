@@ -9,37 +9,97 @@
   <meta name="theme-color" content="#2f9e44" />
   <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+  <!-- テーマ(ダークモード)をちらつかせず適用するため、head で同期的に読み込む -->
+  <script src="./common.js"></script>
   <link rel="stylesheet" href="./app.css" />
   <style>
+    /*
+     * 広い画面(ノートPC以上)では「ツール | 入力 | 出力」の3列にして画面の高さに収め、ページ全体はスクロールさせない。
+     * 狭い画面(スマホ等)では縦に並べ、通常どおりスクロールする。
+     */
     .wrapper {
-      max-width: 960px;
+      max-width: none;
+      display: grid;
+      gap: 12px;
+      grid-template-areas: "header" "input" "tools" "output";
+    }
+
+    header {
+      grid-area: header;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 4px 12px;
+    }
+
+    header h1 {
+      margin: 0;
+    }
+
+    header .theme-slot {
+      margin-left: auto;
+    }
+
+    section {
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      min-width: 0;
+    }
+
+    #input-section {
+      grid-area: input;
+    }
+
+    #tools-section {
+      grid-area: tools;
+    }
+
+    #output-section {
+      grid-area: output;
     }
 
     .tools {
       display: grid;
-      gap: 6px;
+      gap: 8px;
     }
 
+    /* グループ名を左、ボタンを右に並べて縦の長さを抑える */
     .tools .group {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      align-items: center;
+      display: grid;
+      grid-template-columns: 4.2em 1fr;
+      align-items: start;
+      gap: 4px;
     }
 
     .tools .group-name {
-      width: 6em;
-      font-size: 13px;
+      padding-top: 4px;
+      font-size: 12px;
+      font-weight: bold;
       color: var(--muted);
     }
 
+    .tools .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
     .tools button {
-      font-size: 14px;
-      padding: 4px 10px;
+      font-size: 13px;
+      padding: 3px 8px;
+    }
+
+    .tools label {
+      width: 100%;
+      margin: 2px 0 0;
+      font-size: 12px;
+      color: var(--muted);
     }
 
     textarea {
-      min-height: 12em;
+      min-height: 10em;
     }
 
     #output[data-error="true"] {
@@ -48,9 +108,10 @@
 
     .io-header {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 4px;
+      gap: 6px;
+      margin-bottom: 6px;
     }
 
     .io-header h2 {
@@ -60,14 +121,52 @@
     .io-header .spacer {
       flex: 1;
     }
+
+    .io-header button {
+      font-size: 13px;
+      padding: 3px 10px;
+    }
+
+    @media (min-width: 900px) and (min-height: 480px) {
+      body {
+        height: 100dvh;
+        overflow: hidden;
+      }
+
+      .wrapper {
+        height: 100dvh;
+        padding: 12px 16px;
+        grid-template-columns: 290px minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr);
+        grid-template-areas:
+          "header header header"
+          "tools input output";
+      }
+
+      #tools-section {
+        /* ボタンが入りきらないほど低い画面の場合は、この列の中だけスクロールする */
+        overflow-y: auto;
+      }
+
+      textarea {
+        flex: 1;
+        min-height: 0;
+        resize: none;
+      }
+    }
   </style>
 </head>
 
 <body>
   <div class="wrapper">
-    <h1>開発用変換ツール</h1>
+    <header>
+      <h1>開発用変換ツール</h1>
+      <span class="muted">すべてブラウザ内で処理し、入力内容はどこにも送信・保存しません。</span>
+      <!-- テーマ切り替えボタンを、左下に浮かせず(ツール列と重なるため)ここに置く -->
+      <span class="theme-slot" data-theme-button-slot></span>
+    </header>
 
-    <section>
+    <section id="input-section">
       <div class="io-header">
         <h2>入力</h2>
         <span id="input-info" class="muted"></span>
@@ -75,29 +174,25 @@
         <button id="paste" type="button">貼り付け</button>
         <button id="clear" type="button">クリア</button>
       </div>
-      <textarea id="input" class="mono" spellcheck="false" placeholder="変換したいテキストを入力して、下のボタンを押す"></textarea>
+      <textarea id="input" class="mono" spellcheck="false" placeholder="変換したいテキストを入力して、変換ボタンを押す"></textarea>
     </section>
 
-    <section>
+    <section id="tools-section" aria-label="変換">
       <div id="tools" class="tools"></div>
-      <label><input id="base64-urlsafe" type="checkbox" /> Base64 を URL セーフ形式(-_ を使い = を省略)にする</label>
     </section>
 
-    <section>
+    <section id="output-section">
       <div class="io-header">
         <h2>出力</h2>
         <span id="output-info" class="muted"></span>
         <span class="spacer"></span>
-        <button id="to-input" type="button" title="出力を入力欄に移して、続けて変換する">↑ 入力へ</button>
+        <button id="to-input" type="button" title="出力を入力欄に移して、続けて変換する">入力へ戻す</button>
         <button id="copy" type="button" class="primary">コピー</button>
       </div>
       <textarea id="output" class="mono" spellcheck="false" readonly></textarea>
     </section>
-
-    <p class="muted">すべてブラウザ内で処理し、入力内容はどこにも送信・保存しません。</p>
   </div>
 
-  <script src="./common.js"></script>
   <script type="module">
     const $ = (id) => document.getElementById(id);
 
@@ -164,9 +259,9 @@
       ["JSON", [
         ["整形", (input) => JSON.stringify(parseJson(input), null, 2)],
         ["1行に圧縮", (input) => JSON.stringify(parseJson(input))],
-        ["キーを並べ替えて整形", (input) => JSON.stringify(sortKeys(parseJson(input)), null, 2)],
-        ["文字列としてエスケープ", (input) => JSON.stringify(input)],
-        ["エスケープを戻す", (input) => {
+        ["キー順で整形", (input) => JSON.stringify(sortKeys(parseJson(input)), null, 2)],
+        ["エスケープ", (input) => JSON.stringify(input)],
+        ["エスケープ解除", (input) => {
           const value = parseJson(input.trim().startsWith('"') ? input : `"${input}"`);
           if (typeof value !== "string") throw new Error("JSON の文字列ではありません");
           return value;
@@ -210,7 +305,7 @@
         ["SHA-512", (input) => hash("SHA-512", input)],
       ]],
       ["日時", [
-        ["Unix時間 ⇔ 日時", (input) => {
+        ["Unix時間⇔日時", (input) => {
           const text = input.trim();
           if (!text) return `${Math.floor(Date.now() / 1000)}\n${formatDateTime(new Date())}`;
           if (/^-?\d+(\.\d+)?$/.test(text)) {
@@ -226,7 +321,7 @@
       ]],
       ["生成", [
         ["UUID v4", () => crypto.randomUUID()],
-        ["UUID ×10", () => Array.from({ length: 10 }, () => crypto.randomUUID()).join("\n")],
+        ["UUID×10", () => Array.from({ length: 10 }, () => crypto.randomUUID()).join("\n")],
         ["パスワード", () => {
           const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!#$%&*+-=?@_";
           return Array.from({ length: 5 }, () =>
@@ -237,9 +332,9 @@
       ["文字", [
         ["大文字に", (input) => input.toUpperCase()],
         ["小文字に", (input) => input.toLowerCase()],
-        ["全角英数→半角", (input) => input.replace(/[Ａ-Ｚａ-ｚ０-９！-～]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0)).replace(/　/g, " ")],
-        ["重複行を削除", (input) => [...new Set(input.split("\n"))].join("\n")],
-        ["行を並べ替え", (input) => input.split("\n").sort((a, b) => a.localeCompare(b, "ja")).join("\n")],
+        ["全角→半角", (input) => input.replace(/[Ａ-Ｚａ-ｚ０-９！-～]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0)).replace(/　/g, " ")],
+        ["重複行削除", (input) => [...new Set(input.split("\n"))].join("\n")],
+        ["行ソート", (input) => input.split("\n").sort((a, b) => a.localeCompare(b, "ja")).join("\n")],
       ]],
     ];
 
@@ -257,7 +352,9 @@
       const name = document.createElement("span");
       name.className = "group-name";
       name.textContent = groupName;
-      group.appendChild(name);
+      const buttonsElem = document.createElement("div");
+      buttonsElem.className = "buttons";
+      group.append(name, buttonsElem);
       buttons.forEach(([label, fn]) => {
         const button = document.createElement("button");
         button.type = "button";
@@ -269,8 +366,16 @@
             showOutput(error.message, true);
           }
         });
-        group.appendChild(button);
+        buttonsElem.appendChild(button);
       });
+      if (groupName === "Base64") {
+        const option = document.createElement("label");
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.id = "base64-urlsafe";
+        option.append(checkbox, " URLセーフ(-_ を使い = 省略)");
+        buttonsElem.appendChild(option);
+      }
       $("tools").appendChild(group);
     });
 
