@@ -220,3 +220,6 @@ $RECYCLE.BIN/
 *.lnk
 
 # End of https://www.toptal.com/developers/gitignore/api/windows,macos,visualstudiocode,node
+
+# 実際のアカウント情報はコミットしない(見本は htmls/account.sample.json)
+htmls/account.json
