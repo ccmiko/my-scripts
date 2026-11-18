@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>写真の位置情報消し</title>
+  <link rel="stylesheet" href="./app.css" />
+  <style>
+    .drop {
+      display: block;
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 28px 16px;
+      text-align: center;
+      cursor: pointer;
+      margin: 0;
+    }
+
+    .drop:hover,
+    body.dragging .drop {
+      border-color: var(--accent);
+    }
+
+    #results {
+      display: grid;
+      gap: 12px;
+    }
+
+    .item {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 12px;
+      align-items: start;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+    }
+
+    .item img {
+      width: 120px;
+      height: 120px;
+      object-fit: contain;
+      background: var(--bg);
+      border-radius: 6px;
+    }
+
+    .item .name {
+      font-weight: bold;
+      word-break: break-all;
+    }
+
+    .item ul {
+      margin: 4px 0;
+      padding-left: 1.2em;
+      font-size: 14px;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 12px;
+      padding: 1px 8px;
+      border-radius: 999px;
+      border: 1px solid currentColor;
+      margin-right: 4px;
+    }
+
+    .badge.danger {
+      color: var(--warn);
+    }
+
+    .badge.safe {
+      color: var(--accent);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrapper">
+    <h1>写真の位置情報消し</h1>
+
+    <section>
+      <label class="drop" for="files">
+        ここをクリックして写真を選ぶ(ドラッグ＆ドロップ・貼り付けも可)
+        <input id="files" type="file" accept="image/*" multiple hidden />
+      </label>
+      <div class="row" style="margin-top: 12px;">
+        <label>形式
+          <select id="format">
+            <option value="image/jpeg" selected>JPEG</option>
+            <option value="image/webp">WebP</option>
+            <option value="image/png">PNG</option>
+          </select>
+        </label>
+        <label>画質
+          <select id="quality">
+            <option value="0.95">高(95%)</option>
+            <option value="0.85" selected>標準(85%)</option>
+            <option value="0.7">低(70%)</option>
+          </select>
+        </label>
+        <label>長辺の最大
+          <select id="max-size">
+            <option value="0" selected>縮小しない</option>
+            <option value="3840">3840px(4K)</option>
+            <option value="2048">2048px</option>
+            <option value="1280">1280px</option>
+            <option value="800">800px</option>
+          </select>
+        </label>
+      </div>
+      <p class="muted">
+        画像を描き直して保存するため、位置情報(GPS)・撮影日時・機種名などのメタデータはすべて消えます。
+        処理はこのブラウザ内だけで行い、画像はどこにも送信しません。
+      </p>
+    </section>
+
+    <section id="results-section" hidden>
+      <div class="row" style="margin-bottom: 12px;">
+        <h2 style="margin: 0;">変換結果</h2>
+        <button id="download-all" type="button" class="primary">すべて保存</button>
+        <button id="share-all" type="button" hidden>共有</button>
+      </div>
+      <div id="results"></div>
+    </section>
+  </div>
+
+  <script src="./common.js"></script>
+  <script type="module">
+    const $ = (id) => document.getElementById(id);
+    /** 変換結果 { name, blob } の一覧 */
+    let outputs = [];
+    /** 直前に選んだ画像(設定変更時に作り直す用) */
+    let lastFiles = [];
+
+    // ---------------------------------------------------------------- EXIF の簡易解析(JPEG のみ)
+
+    /** JPEG の EXIF から、表示用に主要な項目だけを取り出す。EXIF が無ければ null */
+    const readExif = (buffer) => {
+      const view = new DataView(buffer);
+      if (view.byteLength < 4 || view.getUint16(0) !== 0xffd8) return null;
+      let offset = 2;
+      while (offset + 4 <= view.byteLength) {
+        const marker = view.getUint16(offset);
+        const length = view.getUint16(offset + 2);
+        // APP1 + "Exif\0\0"
+        if (marker === 0xffe1 && view.getUint32(offset + 4) === 0x45786966) {
+          return parseTiff(view, offset + 10);
+        }
+        if ((marker & 0xff00) !== 0xff00 || marker === 0xffda) break;
+        offset += 2 + length;
+      }
+      return null;
+    };
+
+    const parseTiff = (view, start) => {
+      const little = view.getUint16(start) === 0x4949;
+      const u16 = (o) => view.getUint16(start + o, little);
+      const u32 = (o) => view.getUint32(start + o, little);
+      const TYPE_SIZE = { 1: 1, 2: 1, 3: 2, 4: 4, 5: 8, 7: 1, 9: 4, 10: 8 };
+
+      const readValue = (entry) => {
+        const type = u16(entry + 2);
+        const count = u32(entry + 4);
+        const size = (TYPE_SIZE[type] ?? 1) * count;
+        const valueOffset = size > 4 ? u32(entry + 8) : entry + 8;
+        if (start + valueOffset + size > view.byteLength) return null;
+        if (type === 2) {
+          let text = "";
+          for (let i = 0; i < count; i++) {
+            const code = view.getUint8(start + valueOffset + i);
+            if (code === 0) break;
+            text += String.fromCharCode(code);
+          }
+          return text.trim();
+        }
+        const values = [];
+        for (let i = 0; i < count; i++) {
+          if (type === 3) values.push(u16(valueOffset + i * 2));
+          else if (type === 4) values.push(u32(valueOffset + i * 4));
+          else if (type === 5) values.push(u32(valueOffset + i * 8) / (u32(valueOffset + i * 8 + 4) || 1));
+          else values.push(view.getUint8(start + valueOffset + i));
+        }
+        return count === 1 ? values[0] : values;
+      };
+
+      const readIfd = (ifdOffset) => {
+        const tags = {};
+        if (!ifdOffset || start + ifdOffset + 2 > view.byteLength) return tags;
+        const count = u16(ifdOffset);
+        for (let i = 0; i < count; i++) {
+          const entry = ifdOffset + 2 + i * 12;
+          if (start + entry + 12 > view.byteLength) break;
+          tags[u16(entry)] = readValue(entry);
+        }
+        return tags;
+      };
+
+      const ifd0 = readIfd(u32(4));
+      const exif = readIfd(ifd0[0x8769]);
+      const gps = readIfd(ifd0[0x8825]);
+      const toDegrees = (dms, ref) => {
+        if (!Array.isArray(dms) || dms.length < 3) return null;
+        const value = dms[0] + dms[1] / 60 + dms[2] / 3600;
+        return ref === "S" || ref === "W" ? -value : value;
+      };
+      const lat = toDegrees(gps[2], gps[1]);
+      const lng = toDegrees(gps[4], gps[3]);
+      return {
+        make: ifd0[0x010f] || null,
+        model: ifd0[0x0110] || null,
+        software: ifd0[0x0131] || null,
+        dateTime: exif[0x9003] || ifd0[0x0132] || null,
+        gps: lat !== null && lng !== null ? { lat, lng } : null,
+      };
+    };
+
+    // ---------------------------------------------------------------- 変換
+
+    const loadImage = (blob) =>
+      new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error("画像を読み込めません(このブラウザが未対応の形式の可能性があります。HEIC は Safari のみ対応)"));
+        img.src = URL.createObjectURL(blob);
+      });
+
+    const EXTENSIONS = { "image/jpeg": "jpg", "image/webp": "webp", "image/png": "png" };
+
+    /** 画像を canvas に描き直して書き出す(メタデータは引き継がれない)。向きはブラウザが EXIF に従って補正する */
+    const convert = async (file) => {
+      const img = await loadImage(file);
+      try {
+        const maxSize = Number($("max-size").value);
+        const scale = maxSize > 0 ? Math.min(1, maxSize / Math.max(img.naturalWidth, img.naturalHeight)) : 1;
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.naturalWidth * scale);
+        canvas.height = Math.round(img.naturalHeight * scale);
+        const ctx = canvas.getContext("2d");
+        const format = $("format").value;
+        if (format === "image/jpeg") {
+          // JPEG は透過できないため白で塗る
+          ctx.fillStyle = "#fff";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, format, Number($("quality").value)));
+        if (!blob) throw new Error("画像の書き出しに失敗しました");
+        const baseName = file.name.replace(/\.[^.]+$/, "") || "image";
+        return { name: `${baseName}_clean.${EXTENSIONS[format]}`, blob, width: canvas.width, height: canvas.height };
+      } finally {
+        URL.revokeObjectURL(img.src);
+      }
+    };
+
+    const formatBytes = (bytes) =>
+      bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(2)} MB` : `${Math.ceil(bytes / 1024)} KB`;
+
+    const download = ({ name, blob }) => {
+      const anchor = document.createElement("a");
+      anchor.href = URL.createObjectURL(blob);
+      anchor.download = name;
+      anchor.click();
+      setTimeout(() => URL.revokeObjectURL(anchor.href), 1000);
+    };
+
+    const renderItem = (file, exif, output, error) => {
+      const item = document.createElement("div");
+      item.className = "item";
+      const img = document.createElement("img");
+      img.alt = file.name;
+      if (output) {
+        img.src = URL.createObjectURL(output.blob);
+      }
+      const body = document.createElement("div");
+      const name = document.createElement("div");
+      name.className = "name";
+      name.textContent = file.name;
+      body.appendChild(name);
+
+      const badge = document.createElement("span");
+      badge.className = `badge ${exif?.gps ? "danger" : "safe"}`;
+      badge.textContent = exif?.gps ? "位置情報あり → 削除済み" : exif ? "位置情報なし" : "メタデータ未検出";
+      body.appendChild(badge);
+
+      const ul = document.createElement("ul");
+      const addLine = (text) => {
+        const li = document.createElement("li");
+        li.textContent = text;
+        ul.appendChild(li);
+      };
+      if (exif?.gps) addLine(`撮影場所: ${exif.gps.lat.toFixed(5)}, ${exif.gps.lng.toFixed(5)}`);
+      if (exif?.dateTime) addLine(`撮影日時: ${exif.dateTime}`);
+      if (exif?.make || exif?.model) addLine(`機種: ${[exif.make, exif.model].filter(Boolean).join(" ")}`);
+      if (error) {
+        addLine(error.message);
+        ul.lastChild.className = "error";
+      } else {
+        addLine(`${formatBytes(file.size)} → ${formatBytes(output.blob.size)}(${output.width}×${output.height})`);
+      }
+      body.appendChild(ul);
+
+      if (output) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = `保存(${output.name})`;
+        button.addEventListener("click", () => download(output));
+        body.appendChild(button);
+      }
+      item.append(img, body);
+      $("results").appendChild(item);
+    };
+
+    const handleFiles = async (files) => {
+      const images = files.filter((file) => file.type.startsWith("image/") || /\.(heic|heif)$/i.test(file.name));
+      if (!images.length) return;
+      lastFiles = images;
+      $("results").querySelectorAll("img").forEach((img) => img.src && URL.revokeObjectURL(img.src));
+      $("results").textContent = "";
+      outputs = [];
+      $("results-section").hidden = false;
+      for (const file of images) {
+        let exif = null;
+        try {
+          exif = readExif(await file.slice(0, 256 * 1024).arrayBuffer());
+        } catch (error) {
+          console.warn("EXIF の解析に失敗", error);
+        }
+        try {
+          const output = await convert(file);
+          outputs.push(output);
+          renderItem(file, exif, output, null);
+        } catch (error) {
+          console.error(error);
+          renderItem(file, exif, null, error);
+        }
+      }
+      $("download-all").disabled = outputs.length === 0;
+      const shareFiles = outputs.map(({ name, blob }) => new File([blob], name, { type: blob.type }));
+      $("share-all").hidden = !(navigator.canShare && shareFiles.length && navigator.canShare({ files: shareFiles }));
+    };
+
+    $("files").addEventListener("change", (event) => {
+      handleFiles(Array.from(event.target.files));
+      event.target.value = "";
+    });
+    $("download-all").addEventListener("click", () => {
+      // ブラウザが連続ダウンロードをまとめて止めないよう少しずつずらす
+      outputs.forEach((output, index) => setTimeout(() => download(output), index * 300));
+    });
+    $("share-all").addEventListener("click", async () => {
+      try {
+        await navigator.share({ files: outputs.map(({ name, blob }) => new File([blob], name, { type: blob.type })) });
+      } catch (error) {
+        if (error.name !== "AbortError") window.MiniApps.showSnackBar("共有に失敗しました");
+      }
+    });
+
+    document.addEventListener("paste", (event) => {
+      const files = Array.from(event.clipboardData?.files ?? []);
+      if (files.length) {
+        event.preventDefault();
+        handleFiles(files);
+      }
+    });
+    let dragDepth = 0;
+    document.addEventListener("dragenter", (event) => {
+      if (!event.dataTransfer?.types.includes("Files")) return;
+      dragDepth++;
+      document.body.classList.add("dragging");
+    });
+    document.addEventListener("dragleave", () => {
+      dragDepth = Math.max(0, dragDepth - 1);
+      if (dragDepth === 0) document.body.classList.remove("dragging");
+    });
+    document.addEventListener("dragover", (event) => event.preventDefault());
+    document.addEventListener("drop", (event) => {
+      event.preventDefault();
+      dragDepth = 0;
+      document.body.classList.remove("dragging");
+      handleFiles(Array.from(event.dataTransfer?.files ?? []));
+    });
+    // 設定を変えたら、直前に選んだ画像で作り直す
+    ["format", "quality", "max-size"].forEach((id) =>
+      $(id).addEventListener("change", () => lastFiles.length && handleFiles(lastFiles))
+    );
+  </script>
+</body>
+
+</html>
