@@ -4,11 +4,12 @@
  * - HTML: ネットワーク優先(更新をすぐ反映)。オフライン時はキャッシュを返す
  * - その他の同一オリジンのファイル: キャッシュを返しつつ裏で更新(stale-while-revalidate)
  * - CDN(cdn.jsdelivr.net)のライブラリ: バージョン固定なのでキャッシュ優先
- * - アカウント情報(account.json / account.enc.json)は絶対にキャッシュしない
+ * - アカウント情報(NEVER_CACHE)は絶対にキャッシュしない
  *
  * アプリを追加・削除したら APP_FILES と CACHE_VERSION を更新すること。
+ * 行末に local-only のマーカーを付けた行は、GitHub Pages 用のビルド(scripts/build-pages.js)で削除される。
  */
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 const CACHE_NAME = `mini-apps-${CACHE_VERSION}`;
 
 const APP_FILES = [
@@ -20,7 +21,7 @@ const APP_FILES = [
   "./icons/icon.svg",
   "./icons/icon-192.png",
   "./icons/apple-touch-icon.png",
-  "./account.html",
+  "./account.html", // @local-only (公開版では削除される)
   "./char_counter.html",
   "./date_calc.html",
   "./dev_tools.html",
