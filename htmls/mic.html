@@ -5,6 +5,61 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>遅延再生くん</title>
+  <style>
+    :root {
+      --input-color: #2b6cb0;
+      --output-color: #dd6b20;
+      --grid-color: #d0d4da;
+      --text-color: #555;
+      --canvas-bg: #fafbfc;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --input-color: #63a4ff;
+        --output-color: #f6a05a;
+        --grid-color: #3a3f47;
+        --text-color: #aaa;
+        --canvas-bg: #1c1f24;
+      }
+    }
+
+    .graph {
+      max-width: 900px;
+      margin: 16px 0;
+    }
+
+    .graph h2 {
+      font-size: 16px;
+      margin: 0 0 4px;
+    }
+
+    .graph canvas {
+      display: block;
+      width: 100%;
+      height: 140px;
+      background: var(--canvas-bg);
+      border: 1px solid var(--grid-color);
+      border-radius: 4px;
+    }
+
+    .legend {
+      font-size: 13px;
+      margin: 4px 0 0;
+    }
+
+    .legend .swatch {
+      display: inline-block;
+      width: 12px;
+      height: 3px;
+      vertical-align: middle;
+      margin: 0 4px 0 12px;
+    }
+
+    .legend .swatch:first-child {
+      margin-left: 0;
+    }
+  </style>
 </head>
 
 <body>
@@ -27,16 +82,32 @@
       </label>
     </div>
 
-    メモ
-    <div>
-      TODO
-      マイク入力の波形を描画する
-      https://medium.com/hackernoon/creative-coding-using-the-microphone-to-make-sound-reactive-art-part1-164fd3d972f3
+    <div class="graph">
+      <h2>音量レベルの推移(直近12秒)</h2>
+      <canvas id="level-canvas"></canvas>
+      <p class="legend">
+        <span class="swatch" style="background: var(--input-color)"></span>入力(マイク)
+        <span class="swatch" style="background: var(--output-color)"></span>出力(遅延後)
+        — 出力の山が入力から遅延時間ぶん右にずれて現れます
+      </p>
+    </div>
+
+    <div class="graph">
+      <h2>波形(リアルタイム)</h2>
+      <canvas id="wave-canvas"></canvas>
+      <p class="legend">
+        <span class="swatch" style="background: var(--input-color)"></span>入力(マイク)
+        <span class="swatch" style="background: var(--output-color)"></span>出力(遅延後)
+      </p>
     </div>
   </div>
 
   <script type="module">
     const MAX_DELAY_SECONDS = 10;
+    /** レベル推移グラフに表示する秒数(最大遅延より長くして、ずれが見えるようにする) */
+    const HISTORY_SECONDS = 12;
+    /** レベル表示の下限(dB)。これより小さい音は0として描く */
+    const MIN_DB = -60;
 
     const elems = {
       record: document.getElementById("record-button"),
@@ -46,6 +117,8 @@
       delayValue: document.getElementById("delay-value"),
       volumeInput: document.getElementById("volume-input"),
       volumeValue: document.getElementById("volume-value"),
+      levelCanvas: document.getElementById("level-canvas"),
+      waveCanvas: document.getElementById("wave-canvas"),
     };
 
     /** 再生中のみ値が入る */
@@ -54,6 +127,17 @@
       ctx: null,
       delayNode: null,
       gainNode: null,
+      inputAnalyser: null,
+      outputAnalyser: null,
+    };
+
+    /** グラフ描画用の状態 */
+    const graph = {
+      animationId: null,
+      /** { t: 秒(AudioContext の時刻), input: 0〜1, output: 0〜1 } の配列 */
+      history: [],
+      inputBuffer: null,
+      outputBuffer: null,
     };
 
     const isPlaying = () => audio.ctx !== null;
@@ -63,6 +147,151 @@
       elems.stop.disabled = !isPlaying();
       elems.status.textContent = isPlaying() ? "再生中" : "停止中";
     };
+
+    // ---------- グラフ描画 ----------
+
+    const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+    /** 高解像度ディスプレイでぼやけないよう、表示サイズ × devicePixelRatio に合わせる */
+    const fitCanvas = (canvas) => {
+      const dpr = window.devicePixelRatio || 1;
+      const width = Math.round(canvas.clientWidth * dpr);
+      const height = Math.round(canvas.clientHeight * dpr);
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+      const ctx = canvas.getContext("2d");
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      return { ctx, width: canvas.clientWidth, height: canvas.clientHeight };
+    };
+
+    /** 波形データの RMS を 0〜1 のレベル(dB スケール)に変換する */
+    const toLevel = (buffer) => {
+      let sum = 0;
+      for (let i = 0; i < buffer.length; i++) {
+        sum += buffer[i] * buffer[i];
+      }
+      const rms = Math.sqrt(sum / buffer.length);
+      if (rms <= 0) {
+        return 0;
+      }
+      const db = 20 * Math.log10(rms);
+      return Math.min(1, Math.max(0, (db - MIN_DB) / -MIN_DB));
+    };
+
+    const drawLevelGraph = (now) => {
+      const { ctx, width, height } = fitCanvas(elems.levelCanvas);
+      const padBottom = 18;
+      const plotHeight = height - padBottom;
+      ctx.clearRect(0, 0, width, height);
+
+      // 1秒ごとの目盛り(右端が現在)
+      ctx.strokeStyle = cssVar("--grid-color");
+      ctx.fillStyle = cssVar("--text-color");
+      ctx.font = "11px sans-serif";
+      ctx.textAlign = "center";
+      ctx.lineWidth = 1;
+      for (let sec = 0; sec <= HISTORY_SECONDS; sec++) {
+        const x = width - (sec / HISTORY_SECONDS) * width;
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, plotHeight);
+        ctx.stroke();
+        if (sec % 2 === 0) {
+          ctx.fillText(sec === 0 ? "現在" : `-${sec}s`, Math.min(width - 14, Math.max(14, x)), height - 4);
+        }
+      }
+
+      const drawLine = (key, color) => {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        graph.history.forEach((point, index) => {
+          const x = width - ((now - point.t) / HISTORY_SECONDS) * width;
+          const y = plotHeight - point[key] * (plotHeight - 4);
+          if (index === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        });
+        ctx.stroke();
+      };
+      drawLine("input", cssVar("--input-color"));
+      drawLine("output", cssVar("--output-color"));
+    };
+
+    const drawWaveGraph = () => {
+      const { ctx, width, height } = fitCanvas(elems.waveCanvas);
+      ctx.clearRect(0, 0, width, height);
+
+      // 中心線
+      ctx.strokeStyle = cssVar("--grid-color");
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, height / 2);
+      ctx.lineTo(width, height / 2);
+      ctx.stroke();
+
+      const drawWave = (buffer, color) => {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        for (let i = 0; i < buffer.length; i++) {
+          const x = (i / (buffer.length - 1)) * width;
+          const value = Math.max(-1, Math.min(1, buffer[i]));
+          const y = height / 2 - value * (height / 2 - 2);
+          if (i === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+        ctx.stroke();
+      };
+      drawWave(graph.inputBuffer, cssVar("--input-color"));
+      drawWave(graph.outputBuffer, cssVar("--output-color"));
+    };
+
+    const renderFrame = () => {
+      if (!isPlaying()) {
+        return;
+      }
+      audio.inputAnalyser.getFloatTimeDomainData(graph.inputBuffer);
+      audio.outputAnalyser.getFloatTimeDomainData(graph.outputBuffer);
+
+      const now = audio.ctx.currentTime;
+      graph.history.push({
+        t: now,
+        input: toLevel(graph.inputBuffer),
+        output: toLevel(graph.outputBuffer),
+      });
+      while (graph.history.length && now - graph.history[0].t > HISTORY_SECONDS) {
+        graph.history.shift();
+      }
+
+      drawLevelGraph(now);
+      drawWaveGraph();
+      graph.animationId = requestAnimationFrame(renderFrame);
+    };
+
+    const startGraph = () => {
+      graph.history = [];
+      graph.inputBuffer = new Float32Array(audio.inputAnalyser.fftSize);
+      graph.outputBuffer = new Float32Array(audio.outputAnalyser.fftSize);
+      graph.animationId = requestAnimationFrame(renderFrame);
+    };
+
+    const stopGraph = () => {
+      if (graph.animationId !== null) {
+        cancelAnimationFrame(graph.animationId);
+        graph.animationId = null;
+      }
+      // 停止後も最後のグラフは残しておく
+    };
+
+    // ---------- 音声処理 ----------
 
     const start = async () => {
       if (isPlaying()) {
@@ -85,7 +314,17 @@
         delayNode.connect(gainNode);
         gainNode.connect(ctx.destination);
 
-        Object.assign(audio, { stream, ctx, delayNode, gainNode });
+        // グラフ用に、入力(マイク直後)と出力(音量調整後)を分岐して解析する。
+        // AnalyserNode は音を加工しないので、再生される音には影響しない
+        const inputAnalyser = ctx.createAnalyser();
+        inputAnalyser.fftSize = 2048;
+        source.connect(inputAnalyser);
+        const outputAnalyser = ctx.createAnalyser();
+        outputAnalyser.fftSize = 2048;
+        gainNode.connect(outputAnalyser);
+
+        Object.assign(audio, { stream, ctx, delayNode, gainNode, inputAnalyser, outputAnalyser });
+        startGraph();
       } catch (error) {
         console.error(error);
         window.alert(`マイクを開始できませんでした: ${error.message}`);
@@ -98,10 +337,13 @@
       if (!isPlaying()) {
         return;
       }
+      stopGraph();
       audio.stream.getTracks().forEach((track) => track.stop());
       // AudioContext を閉じないと開始のたびに増え続ける
       await audio.ctx.close();
-      Object.assign(audio, { stream: null, ctx: null, delayNode: null, gainNode: null });
+      Object.assign(audio, {
+        stream: null, ctx: null, delayNode: null, gainNode: null, inputAnalyser: null, outputAnalyser: null,
+      });
       updateButtons();
     };
 
