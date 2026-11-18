@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 
 <head>
   <meta charset="UTF-8" />
@@ -23,102 +23,102 @@
       <p id="message"></p>
     </div>
   </div>
+
+  <script type="module">
+    const LOCAL_STORAGE_KEY = "MEDICINE";
+    const getStorage = (key) => {
+      try {
+        const storage = window.localStorage.getItem(key);
+        return storage ? JSON.parse(storage) : {};
+      } catch (error) {
+        console.error(error);
+        return {};
+      }
+    };
+    const getZeroTimeDay = (date, addDay = 0) => {
+      const newDate = new Date(date);
+      newDate.setDate(newDate.getDate() + addDay);
+      newDate.setHours(0);
+      newDate.setMinutes(0);
+      newDate.setSeconds(0);
+      newDate.setMilliseconds(0);
+      return newDate;
+    };
+    const toDateString = (date) => {
+      const newDate = new Date(date);
+      return `${newDate.toLocaleDateString("sv-SE")}(${"日月火水木金土".slice(
+        newDate.getDay(),
+        newDate.getDay() + 1
+      )})`;
+    };
+    const toDateTimeString = (date) => {
+      const newDate = new Date(date);
+      return `${toDateString(newDate)} ${newDate.toLocaleTimeString("sv-SE")}`;
+    };
+    /**
+     * 保存済みの記録を読み込む。最後の記録日が今日より前なら、今日の空の記録として扱う。
+     * (ページを開いたまま日付をまたいだ場合も、操作時点の日付で判定される)
+     */
+    const loadTodayRecords = () => {
+      const today = getZeroTimeDay(new Date(), 0);
+      const medicines = getStorage(LOCAL_STORAGE_KEY);
+      if (!medicines?.lastRecordDay) {
+        return { day: today, records: [] };
+      }
+      const lastRecordDay = getZeroTimeDay(medicines.lastRecordDay, 0);
+      if (Number.isNaN(lastRecordDay.getTime()) || today.getTime() > lastRecordDay.getTime()) {
+        return { day: today, records: [] };
+      }
+      const records = [].concat(medicines.records).filter((item) => item);
+      return { day: lastRecordDay, records };
+    };
+    const refreshRecords = (lastRecordDay, records) => {
+      window.localStorage.setItem(
+        LOCAL_STORAGE_KEY,
+        JSON.stringify({
+          lastRecordDay,
+          records,
+        })
+      );
+      const titleElem = document.getElementById("title");
+      const listElem = document.getElementById("list");
+      const messageElem = document.getElementById("message");
+      titleElem.textContent = `${toDateString(lastRecordDay)} のおくすり記録`;
+      listElem.textContent = "";
+      messageElem.textContent = "";
+      if (records.length === 0) {
+        messageElem.textContent = "おくすり記録がありません";
+      } else {
+        records.forEach((record) => {
+          const liElem = document.createElement("li");
+          liElem.textContent = toDateTimeString(record.stamping);
+          listElem.appendChild(liElem);
+        });
+      }
+    };
+    const init = () => {
+      const { day, records } = loadTodayRecords();
+      refreshRecords(day, records);
+    };
+    document.getElementById("add").addEventListener("click", () => {
+      const { day, records } = loadTodayRecords();
+      records.push({ stamping: new Date() });
+      refreshRecords(day, records);
+    });
+    document.getElementById("remove").addEventListener("click", () => {
+      const { day, records } = loadTodayRecords();
+      records.pop();
+      refreshRecords(day, records);
+    });
+    document.getElementById("reset").addEventListener("click", () => {
+      if (!window.confirm("今日の記録をすべて削除しますか？")) {
+        return;
+      }
+      refreshRecords(getZeroTimeDay(new Date(), 0), []);
+    });
+
+    init();
+  </script>
 </body>
 
 </html>
-
-<script type="module">
-  const LOCAL_STORAGE_KEY = "MEDICINE";
-  const getStorage = (key) => {
-    try {
-      const storage = window.localStorage.getItem(key);
-      return storage ? JSON.parse(storage) : {};
-    } catch (error) {
-      console.error(error);
-      return {};
-    }
-  };
-  const getZeroTimeDay = (date, addDay = 0) => {
-    const newDate = new Date(date);
-    newDate.setDate(newDate.getDate() + addDay);
-    newDate.setHours(0);
-    newDate.setMinutes(0);
-    newDate.setSeconds(0);
-    newDate.setMilliseconds(0);
-    return newDate;
-  };
-  const toDateString = (date) => {
-    const newDate = new Date(date);
-    return `${newDate.toLocaleDateString("sv-SE")}(${"日月火水木金土".slice(
-      newDate.getDay(),
-      newDate.getDay() + 1
-    )})`;
-  };
-  const toDateTimeString = (date) => {
-    const newDate = new Date(date);
-    return `${toDateString(newDate)} ${newDate.toLocaleTimeString("sv-SE")}`;
-  };
-  /**
-   * 保存済みの記録を読み込む。最後の記録日が今日より前なら、今日の空の記録として扱う。
-   * (ページを開いたまま日付をまたいだ場合も、操作時点の日付で判定される)
-   */
-  const loadTodayRecords = () => {
-    const today = getZeroTimeDay(new Date(), 0);
-    const medicines = getStorage(LOCAL_STORAGE_KEY);
-    if (!medicines?.lastRecordDay) {
-      return { day: today, records: [] };
-    }
-    const lastRecordDay = getZeroTimeDay(medicines.lastRecordDay, 0);
-    if (Number.isNaN(lastRecordDay.getTime()) || today.getTime() > lastRecordDay.getTime()) {
-      return { day: today, records: [] };
-    }
-    const records = [].concat(medicines.records).filter((item) => item);
-    return { day: lastRecordDay, records };
-  };
-  const refreshRecords = (lastRecordDay, records) => {
-    window.localStorage.setItem(
-      LOCAL_STORAGE_KEY,
-      JSON.stringify({
-        lastRecordDay,
-        records,
-      })
-    );
-    const titleElem = document.getElementById("title");
-    const listElem = document.getElementById("list");
-    const messageElem = document.getElementById("message");
-    titleElem.textContent = `${toDateString(lastRecordDay)} のおくすり記録`;
-    listElem.textContent = "";
-    messageElem.textContent = "";
-    if (records.length === 0) {
-      messageElem.textContent = "おくすり記録がありません";
-    } else {
-      records.forEach((record) => {
-        const liElem = document.createElement("li");
-        liElem.textContent = toDateTimeString(record.stamping);
-        listElem.appendChild(liElem);
-      });
-    }
-  };
-  const init = () => {
-    const { day, records } = loadTodayRecords();
-    refreshRecords(day, records);
-  };
-  document.getElementById("add").addEventListener("click", () => {
-    const { day, records } = loadTodayRecords();
-    records.push({ stamping: new Date() });
-    refreshRecords(day, records);
-  });
-  document.getElementById("remove").addEventListener("click", () => {
-    const { day, records } = loadTodayRecords();
-    records.pop();
-    refreshRecords(day, records);
-  });
-  document.getElementById("reset").addEventListener("click", () => {
-    if (!window.confirm("今日の記録をすべて削除しますか？")) {
-      return;
-    }
-    refreshRecords(getZeroTimeDay(new Date(), 0), []);
-  });
-
-  init();
-</script>

@@ -20,85 +20,84 @@
       <p class="text-base text-gray-500">ここに読み取り結果が出力されます。</p>
     </div>
   </div>
-</body>
 
-</html>
+  <script src="./common.js"></script>
+  <script type="module">
+    import QrScanner from 'https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.min.js'
 
-<script src="./common.js"></script>
-<script type="module">
-  import QrScanner from 'https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.min.js'
+    const init = () => {
+      document.getElementById('uploader').addEventListener('change', handleSelectImage);
+    };
 
-  const init = () => {
-    document.getElementById('uploader').addEventListener('change', handleSelectImage);
-  };
-
-  /** 前回の読み取り結果を消す(先頭の説明文は残す) */
-  const clearResult = (resultElem) => {
-    while (resultElem.children.length > 1) {
-      resultElem.lastElementChild.remove();
-    }
-  }
-
-  const createErrorElem = (message) => {
-    const msgElem = document.createElement("p")
-    msgElem.className = "text-base text-red-500 my-4"
-    msgElem.textContent = message
-    return msgElem
-  }
-
-  /** 読み込んだ画像のプレビュー(縦横比を保って縮小表示) */
-  const createImagePreview = (file) => {
-    const wrapper = document.createElement("div")
-
-    const msgElem = document.createElement("p")
-    msgElem.className = "text-base text-gray-500 mt-4"
-    msgElem.textContent = "↓読み込んだ画像";
-
-    const imgElem = document.createElement("img");
-    imgElem.src = URL.createObjectURL(file);
-    imgElem.onload = () => URL.revokeObjectURL(imgElem.src)
-    imgElem.alt = imgElem.title = file.name;
-    imgElem.className = "block m-auto max-w-[200px] max-h-[200px] object-contain"
-
-    wrapper.appendChild(msgElem)
-    wrapper.appendChild(imgElem)
-    return wrapper
-  }
-
-  const handleSelectImage = async (e) => {
-    const uploaderElem = e.target
-    if (!uploaderElem.files.length) {
-      return
-    }
-    const file = uploaderElem.files[0]
-    // 同じファイルを選び直しても change イベントが発火するようにする
-    uploaderElem.value = ""
-
-    const resultElem = document.getElementById("result");
-    clearResult(resultElem)
-    const containerElem = document.createElement("div")
-    resultElem.appendChild(containerElem)
-
-    let data = null
-    try {
-      const result = await QrScanner.scanImage(file, { returnDetailedScanResult: true })
-      data = result.data
-      console.debug("decoded qr code:", data);
-    } catch (error) {
-      if (error === QrScanner.NO_QR_CODE_FOUND || error === "No QR code found") {
-        containerElem.appendChild(createErrorElem("画像からQRコードが見つかりませんでした"))
-      } else {
-        console.error(error);
-        containerElem.appendChild(createErrorElem("QRコードの読み取り処理に失敗しました"))
+    /** 前回の読み取り結果を消す(先頭の説明文は残す) */
+    const clearResult = (resultElem) => {
+      while (resultElem.children.length > 1) {
+        resultElem.lastElementChild.remove();
       }
     }
 
-    if (data !== null) {
-      containerElem.appendChild(window.MiniApps.createQrResultElem(data))
+    const createErrorElem = (message) => {
+      const msgElem = document.createElement("p")
+      msgElem.className = "text-base text-red-500 my-4"
+      msgElem.textContent = message
+      return msgElem
     }
-    containerElem.appendChild(createImagePreview(file))
-  }
 
+    /** 読み込んだ画像のプレビュー(縦横比を保って縮小表示) */
+    const createImagePreview = (file) => {
+      const wrapper = document.createElement("div")
 
-  init()
-</script>
+      const msgElem = document.createElement("p")
+      msgElem.className = "text-base text-gray-500 mt-4"
+      msgElem.textContent = "↓読み込んだ画像";
+
+      const imgElem = document.createElement("img");
+      imgElem.src = URL.createObjectURL(file);
+      imgElem.onload = () => URL.revokeObjectURL(imgElem.src)
+      imgElem.alt = imgElem.title = file.name;
+      imgElem.className = "block m-auto max-w-[200px] max-h-[200px] object-contain"
+
+      wrapper.appendChild(msgElem)
+      wrapper.appendChild(imgElem)
+      return wrapper
+    }
+
+    const handleSelectImage = async (e) => {
+      const uploaderElem = e.target
+      if (!uploaderElem.files.length) {
+        return
+      }
+      const file = uploaderElem.files[0]
+      // 同じファイルを選び直しても change イベントが発火するようにする
+      uploaderElem.value = ""
+
+      const resultElem = document.getElementById("result");
+      clearResult(resultElem)
+      const containerElem = document.createElement("div")
+      resultElem.appendChild(containerElem)
+
+      let data = null
+      try {
+        const result = await QrScanner.scanImage(file, { returnDetailedScanResult: true })
+        data = result.data
+        console.debug("decoded qr code:", data);
+      } catch (error) {
+        if (error === QrScanner.NO_QR_CODE_FOUND || error === "No QR code found") {
+          containerElem.appendChild(createErrorElem("画像からQRコードが見つかりませんでした"))
+        } else {
+          console.error(error);
+          containerElem.appendChild(createErrorElem("QRコードの読み取り処理に失敗しました"))
+        }
+      }
+
+      if (data !== null) {
+        containerElem.appendChild(window.MiniApps.createQrResultElem(data))
+      }
+      containerElem.appendChild(createImagePreview(file))
+    }
+
+    init()
+  </script>
+</body>
+
+</html>

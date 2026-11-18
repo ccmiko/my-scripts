@@ -18,116 +18,115 @@
     </div>
     <video id="video" class="max-w-[800px] max-h-[800px] bg-black"></video>
   </div>
+
+  <script src="./common.js"></script>
+  <script type="module">
+    import QrScanner from 'https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.min.js'
+    // 関数を跨いで参照したい変数群
+    const VALUES = {
+      qrScanner: null,
+      /** 起動・停止処理中は true(連打対策) */
+      busy: false,
+      /** 直前に表示した読み取り結果(同じQRを写し続けたときに再描画しないため) */
+      lastData: null,
+      buttonElem: null,
+      videoElem: null,
+      resultElem: null,
+    }
+
+    const init = async () => {
+      VALUES.buttonElem = document.getElementById("button");
+      VALUES.videoElem = document.getElementById("video");
+      VALUES.resultElem = document.getElementById("result");
+      if (!VALUES.videoElem || !VALUES.buttonElem || !VALUES.resultElem) {
+        window.alert("HTMLタグを取得できません");
+        return;
+      }
+      VALUES.buttonElem.addEventListener("click", () => {
+        handleCamera();
+      });
+    };
+
+    const updateButton = () => {
+      VALUES.buttonElem.textContent = VALUES.qrScanner ? "カメラを停止する" : "カメラを起動する";
+      VALUES.buttonElem.disabled = VALUES.busy;
+    };
+
+    const handleCamera = async () => {
+      if (VALUES.busy) {
+        return;
+      }
+      VALUES.busy = true;
+      updateButton();
+      try {
+        if (VALUES.qrScanner) {
+          stopCamera();
+        } else {
+          await startCamera();
+        }
+      } catch (error) {
+        console.error(error);
+        stopCamera();
+        window.alert(`カメラを起動できませんでした: ${error?.message ?? error}`);
+      } finally {
+        VALUES.busy = false;
+        updateButton();
+      }
+    }
+
+    /** 前回の読み取り結果を消す(先頭の説明文は残す) */
+    const clearResult = () => {
+      while (VALUES.resultElem.children.length > 1) {
+        VALUES.resultElem.lastElementChild.remove();
+      }
+    }
+
+    const showResult = (data) => {
+      clearResult()
+      console.debug("decoded qr code:", data);
+      VALUES.resultElem.appendChild(window.MiniApps.createQrResultElem(data))
+    }
+
+    const startCamera = async () => {
+      // カメラの起動(getUserMedia)・video への映像設定は QrScanner が内部で行う
+      VALUES.qrScanner = new QrScanner(
+        VALUES.videoElem,
+        (result) => {
+          // デコード成功時のコールバック。QRが写っている間は毎フレーム呼ばれる
+          if (result.data === VALUES.lastData) {
+            return;
+          }
+          VALUES.lastData = result.data;
+          showResult(result.data);
+        },
+        {
+          // スマホでは背面カメラを優先する
+          preferredCamera: "environment",
+          onDecodeError: (error) => {
+            // デコード失敗時のエラーコールバック
+            if (error === QrScanner.NO_QR_CODE_FOUND || error === "No QR code found") {
+              // カメラにQRコードが写っていない場合は常にこのエラーが発生するため抑制
+              return;
+            }
+            console.error(error);
+          },
+        }
+      );
+      await VALUES.qrScanner.start();
+    }
+
+    const stopCamera = () => {
+      if (VALUES.qrScanner) {
+        VALUES.qrScanner.stop();
+        VALUES.qrScanner.destroy();
+        VALUES.qrScanner = null
+      }
+      VALUES.lastData = null
+      clearResult()
+    }
+
+    init()
+  </script>
 </body>
 
 </html>
-
-<script src="./common.js"></script>
-<script type="module">
-  import QrScanner from 'https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.min.js'
-  // 関数を跨いで参照したい変数群
-  const VALUES = {
-    qrScanner: null,
-    /** 起動・停止処理中は true(連打対策) */
-    busy: false,
-    /** 直前に表示した読み取り結果(同じQRを写し続けたときに再描画しないため) */
-    lastData: null,
-    buttonElem: null,
-    videoElem: null,
-    resultElem: null,
-  }
-
-  const init = async () => {
-    VALUES.buttonElem = document.getElementById("button");
-    VALUES.videoElem = document.getElementById("video");
-    VALUES.resultElem = document.getElementById("result");
-    if (!VALUES.videoElem || !VALUES.buttonElem || !VALUES.resultElem) {
-      window.alert("HTMLタグを取得できません");
-      return;
-    }
-    VALUES.buttonElem.addEventListener("click", () => {
-      handleCamera();
-    });
-  };
-
-  const updateButton = () => {
-    VALUES.buttonElem.textContent = VALUES.qrScanner ? "カメラを停止する" : "カメラを起動する";
-    VALUES.buttonElem.disabled = VALUES.busy;
-  };
-
-  const handleCamera = async () => {
-    if (VALUES.busy) {
-      return;
-    }
-    VALUES.busy = true;
-    updateButton();
-    try {
-      if (VALUES.qrScanner) {
-        stopCamera();
-      } else {
-        await startCamera();
-      }
-    } catch (error) {
-      console.error(error);
-      stopCamera();
-      window.alert(`カメラを起動できませんでした: ${error?.message ?? error}`);
-    } finally {
-      VALUES.busy = false;
-      updateButton();
-    }
-  }
-
-  /** 前回の読み取り結果を消す(先頭の説明文は残す) */
-  const clearResult = () => {
-    while (VALUES.resultElem.children.length > 1) {
-      VALUES.resultElem.lastElementChild.remove();
-    }
-  }
-
-  const showResult = (data) => {
-    clearResult()
-    console.debug("decoded qr code:", data);
-    VALUES.resultElem.appendChild(window.MiniApps.createQrResultElem(data))
-  }
-
-  const startCamera = async () => {
-    // カメラの起動(getUserMedia)・video への映像設定は QrScanner が内部で行う
-    VALUES.qrScanner = new QrScanner(
-      VALUES.videoElem,
-      (result) => {
-        // デコード成功時のコールバック。QRが写っている間は毎フレーム呼ばれる
-        if (result.data === VALUES.lastData) {
-          return;
-        }
-        VALUES.lastData = result.data;
-        showResult(result.data);
-      },
-      {
-        // スマホでは背面カメラを優先する
-        preferredCamera: "environment",
-        onDecodeError: (error) => {
-          // デコード失敗時のエラーコールバック
-          if (error === QrScanner.NO_QR_CODE_FOUND || error === "No QR code found") {
-            // カメラにQRコードが写っていない場合は常にこのエラーが発生するため抑制
-            return;
-          }
-          console.error(error);
-        },
-      }
-    );
-    await VALUES.qrScanner.start();
-  }
-
-  const stopCamera = () => {
-    if (VALUES.qrScanner) {
-      VALUES.qrScanner.stop();
-      VALUES.qrScanner.destroy();
-      VALUES.qrScanner = null
-    }
-    VALUES.lastData = null
-    clearResult()
-  }
-
-
-  init()
-</script>

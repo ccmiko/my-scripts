@@ -5,37 +5,38 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ミニアプリたち</title>
+  <style>
+    li {
+      font-size: 20px;
+      margin: 10px 0;
+    }
+  </style>
 </head>
 
 <body>
   <ul id="list">
     <!-- jsでデータを挿入する -->
   </ul>
+
+  <script>
+    links = [
+      'account.html',
+      'style_slayer.html',
+      'medicine_management.html',
+      'fire_keeper.html',
+      'ocr.html',
+      'qr_reader_image.html',
+      'qr_reader_camera.html',
+      'mic.html',
+    ];
+    const parentElem = document.getElementById('list');
+    links.forEach((link) => {
+      parentElem.insertAdjacentHTML(
+        'beforeend',
+        `<li><a href="./${link}" target="_blank">${link}</a></li>`
+      );
+    });
+  </script>
 </body>
 
 </html>
-<script>
-  links = [
-    'account.html',
-    'style_slayer.html',
-    'medicine_management.html',
-    'fire_keeper.html',
-    'ocr.html',
-    'qr_reader_image.html',
-    'qr_reader_camera.html',
-    'mic.html',
-  ];
-  const parentElem = document.getElementById('list');
-  links.forEach((link) => {
-    parentElem.insertAdjacentHTML(
-      'beforeend',
-      `<li><a href="./${link}" target="_blank">${link}</a></li>`
-    );
-  });
-</script>
-<style>
-  li {
-    font-size: 20px;
-    margin: 10px 0;
-  }
-</style>

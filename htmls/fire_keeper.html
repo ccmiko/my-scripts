@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="jp">
+<html lang="ja">
 
 <head>
   <meta charset="UTF-8" />
@@ -19,202 +19,202 @@
       <p id="description" style="display: none;"></p>
     </div>
   </main>
+
+  <script type="module">
+    const state = {
+      /** WakeLockSentinel。タブ非表示等でブラウザに解除されると null になる */
+      wakeLock: null,
+      /** ロック開始時刻(ms)。未ロック時は null */
+      startAt: null,
+      /** 自動解除時刻(ms)。未ロック時は null */
+      endAt: null,
+      autoUnlockTimerId: null,
+      tickTimerId: null,
+    };
+
+    const elems = {
+      button: document.getElementById("lock-button"),
+      status: document.getElementById("lock-status"),
+      elapsed: document.getElementById("lock-elapsed-time"),
+      description: document.getElementById("description"),
+    };
+
+    const isLocked = () => state.endAt !== null;
+
+    const showDescription = (text) => {
+      elems.description.textContent = text;
+      elems.description.style.display = "inline";
+    };
+
+    const formatElapsed = (ms) => {
+      const totalSeconds = Math.floor(ms / 1000);
+      const pad = (n) => String(n).padStart(2, "0");
+      // 24時間を超えても時は繰り上げずにそのまま表示する
+      return `${pad(Math.floor(totalSeconds / 3600))}:${pad(Math.floor(totalSeconds / 60) % 60)}:${pad(totalSeconds % 60)}`;
+    };
+
+    const updateElapsed = () => {
+      elems.elapsed.textContent = isLocked()
+        ? formatElapsed(Date.now() - state.startAt)
+        : "00:00:00";
+    };
+
+    /** Wake Lock を取得する。タブ非表示でブラウザに解除された場合は、表示復帰時に再取得する */
+    async function acquireWakeLock() {
+      const sentinel = await navigator.wakeLock.request("screen");
+      state.wakeLock = sentinel;
+      elems.status.textContent = "ロック中";
+      sentinel.addEventListener("release", () => {
+        if (state.wakeLock === sentinel) {
+          state.wakeLock = null;
+        }
+        if (isLocked()) {
+          elems.status.textContent = "一時解除中(タブに戻ると再ロックします)";
+        }
+      });
+    }
+
+    async function lock(minutes) {
+      state.startAt = Date.now();
+      state.endAt = state.startAt + minutes * 60 * 1000;
+      try {
+        await acquireWakeLock();
+      } catch (error) {
+        state.startAt = null;
+        state.endAt = null;
+        throw error;
+      }
+      elems.button.textContent = "解除する";
+      showDescription(`${minutes}分経過すると自動でロックを解除します`);
+      state.autoUnlockTimerId = setTimeout(unlock, state.endAt - state.startAt);
+      state.tickTimerId = setInterval(updateElapsed, 1000);
+    }
+
+    async function unlock() {
+      if (!isLocked()) {
+        return;
+      }
+      clearTimeout(state.autoUnlockTimerId);
+      clearInterval(state.tickTimerId);
+      state.autoUnlockTimerId = null;
+      state.tickTimerId = null;
+      state.startAt = null;
+      state.endAt = null;
+
+      const sentinel = state.wakeLock;
+      state.wakeLock = null;
+      await sentinel?.release();
+
+      elems.button.textContent = "ロックする";
+      elems.status.textContent = "未ロック";
+      showDescription("ロックが解除されました");
+      updateElapsed();
+      playUnlockSound();
+    }
+
+    // ロック解除の効果音。ここはAI生成コードの丸コピ
+    function playUnlockSound() {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      function playStep(freq, startTime, duration) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "triangle";
+        osc.frequency.value = freq;
+        // 接続
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        const fadeTime = 0.02; // 20msのフェード（これでクリックノイズが消えます）
+        // --- 音量エンベロープの設定 ---
+        // 1. 開始時の音量を0にする
+        gain.gain.setValueAtTime(0, startTime);
+        // 2. fadeTimeかけて音量を1に上げる（フェードイン）
+        gain.gain.linearRampToValueAtTime(1, startTime + fadeTime);
+        // 3. 終了の少し前まで音量を維持
+        gain.gain.setValueAtTime(1, startTime + duration - fadeTime);
+        // 4. 最後にかけて音量を0に下げる（フェードアウト）
+        gain.gain.linearRampToValueAtTime(0, startTime + duration);
+        osc.start(startTime);
+        osc.stop(startTime + duration);
+      }
+      const now = ctx.currentTime;
+      const freqs = [523.25, 659.25, 783.99, 1046.5, 1318.51];
+      const stepSeconds = 0.2;
+      freqs.forEach((f, i) => {
+        playStep(f, now + i * stepSeconds, stepSeconds);
+      });
+      // 再生し終わったら AudioContext を解放する
+      setTimeout(() => ctx.close(), (freqs.length * stepSeconds + 0.5) * 1000);
+    }
+
+    /** 正の数値以外(キャンセル・空・0・負数・数値以外)は null を返す */
+    const parseMinutes = (input) => {
+      if (input === null || input.trim() === "") {
+        return null;
+      }
+      const minutes = Number(input);
+      return Number.isFinite(minutes) && minutes > 0 ? minutes : null;
+    };
+
+    async function handleButtonClick() {
+      elems.button.disabled = true;
+      try {
+        if (isLocked()) {
+          await unlock();
+          return;
+        }
+        const minutes = parseMinutes(window.prompt("何分ロックしますか？", 60));
+        if (minutes === null) {
+          showDescription("設定をキャンセルしました(正の数値を入力してください)");
+          return;
+        }
+        await lock(minutes);
+      } catch (error) {
+        window.alert(`エラー。 ${error.name}, ${error.message}`);
+      } finally {
+        elems.button.disabled = false;
+      }
+    }
+
+    function init() {
+      if (!("wakeLock" in navigator)) {
+        elems.button.disabled = true;
+        showDescription("このブラウザ(または非HTTPS環境)では Wake Lock API が使えません");
+        return;
+      }
+      elems.button.addEventListener("click", handleButtonClick);
+
+      window.addEventListener("keydown", (event) => {
+        if (event.key === " ") {
+          // ボタンにフォーカスがあるときのクリック発火・スクロールを防ぐ
+          event.preventDefault();
+          if (!event.repeat && !isLocked()) {
+            handleButtonClick();
+          }
+        } else if (event.key === "Escape" && isLocked()) {
+          handleButtonClick();
+        }
+      });
+      // スペースキーによるボタンのクリックは keyup で発火するため、こちらも抑止する
+      window.addEventListener("keyup", (event) => {
+        if (event.key === " ") {
+          event.preventDefault();
+        }
+      });
+
+      // タブ非表示でブラウザに解除された Wake Lock を、表示復帰時に取り直す
+      document.addEventListener("visibilitychange", async () => {
+        if (document.visibilityState === "visible" && isLocked() && !state.wakeLock) {
+          try {
+            await acquireWakeLock();
+          } catch (error) {
+            console.error(error);
+          }
+        }
+      });
+    }
+
+    init();
+  </script>
 </body>
 
 </html>
-
-<script type="module">
-  const state = {
-    /** WakeLockSentinel。タブ非表示等でブラウザに解除されると null になる */
-    wakeLock: null,
-    /** ロック開始時刻(ms)。未ロック時は null */
-    startAt: null,
-    /** 自動解除時刻(ms)。未ロック時は null */
-    endAt: null,
-    autoUnlockTimerId: null,
-    tickTimerId: null,
-  };
-
-  const elems = {
-    button: document.getElementById("lock-button"),
-    status: document.getElementById("lock-status"),
-    elapsed: document.getElementById("lock-elapsed-time"),
-    description: document.getElementById("description"),
-  };
-
-  const isLocked = () => state.endAt !== null;
-
-  const showDescription = (text) => {
-    elems.description.textContent = text;
-    elems.description.style.display = "inline";
-  };
-
-  const formatElapsed = (ms) => {
-    const totalSeconds = Math.floor(ms / 1000);
-    const pad = (n) => String(n).padStart(2, "0");
-    // 24時間を超えても時は繰り上げずにそのまま表示する
-    return `${pad(Math.floor(totalSeconds / 3600))}:${pad(Math.floor(totalSeconds / 60) % 60)}:${pad(totalSeconds % 60)}`;
-  };
-
-  const updateElapsed = () => {
-    elems.elapsed.textContent = isLocked()
-      ? formatElapsed(Date.now() - state.startAt)
-      : "00:00:00";
-  };
-
-  /** Wake Lock を取得する。タブ非表示でブラウザに解除された場合は、表示復帰時に再取得する */
-  async function acquireWakeLock() {
-    const sentinel = await navigator.wakeLock.request("screen");
-    state.wakeLock = sentinel;
-    elems.status.textContent = "ロック中";
-    sentinel.addEventListener("release", () => {
-      if (state.wakeLock === sentinel) {
-        state.wakeLock = null;
-      }
-      if (isLocked()) {
-        elems.status.textContent = "一時解除中(タブに戻ると再ロックします)";
-      }
-    });
-  }
-
-  async function lock(minutes) {
-    state.startAt = Date.now();
-    state.endAt = state.startAt + minutes * 60 * 1000;
-    try {
-      await acquireWakeLock();
-    } catch (error) {
-      state.startAt = null;
-      state.endAt = null;
-      throw error;
-    }
-    elems.button.textContent = "解除する";
-    showDescription(`${minutes}分経過すると自動でロックを解除します`);
-    state.autoUnlockTimerId = setTimeout(unlock, state.endAt - state.startAt);
-    state.tickTimerId = setInterval(updateElapsed, 1000);
-  }
-
-  async function unlock() {
-    if (!isLocked()) {
-      return;
-    }
-    clearTimeout(state.autoUnlockTimerId);
-    clearInterval(state.tickTimerId);
-    state.autoUnlockTimerId = null;
-    state.tickTimerId = null;
-    state.startAt = null;
-    state.endAt = null;
-
-    const sentinel = state.wakeLock;
-    state.wakeLock = null;
-    await sentinel?.release();
-
-    elems.button.textContent = "ロックする";
-    elems.status.textContent = "未ロック";
-    showDescription("ロックが解除されました");
-    updateElapsed();
-    playUnlockSound();
-  }
-
-  // ロック解除の効果音。ここはAI生成コードの丸コピ
-  function playUnlockSound() {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    function playStep(freq, startTime, duration) {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "triangle";
-      osc.frequency.value = freq;
-      // 接続
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      const fadeTime = 0.02; // 20msのフェード（これでクリックノイズが消えます）
-      // --- 音量エンベロープの設定 ---
-      // 1. 開始時の音量を0にする
-      gain.gain.setValueAtTime(0, startTime);
-      // 2. fadeTimeかけて音量を1に上げる（フェードイン）
-      gain.gain.linearRampToValueAtTime(1, startTime + fadeTime);
-      // 3. 終了の少し前まで音量を維持
-      gain.gain.setValueAtTime(1, startTime + duration - fadeTime);
-      // 4. 最後にかけて音量を0に下げる（フェードアウト）
-      gain.gain.linearRampToValueAtTime(0, startTime + duration);
-      osc.start(startTime);
-      osc.stop(startTime + duration);
-    }
-    const now = ctx.currentTime;
-    const freqs = [523.25, 659.25, 783.99, 1046.5, 1318.51];
-    const stepSeconds = 0.2;
-    freqs.forEach((f, i) => {
-      playStep(f, now + i * stepSeconds, stepSeconds);
-    });
-    // 再生し終わったら AudioContext を解放する
-    setTimeout(() => ctx.close(), (freqs.length * stepSeconds + 0.5) * 1000);
-  }
-
-  /** 正の数値以外(キャンセル・空・0・負数・数値以外)は null を返す */
-  const parseMinutes = (input) => {
-    if (input === null || input.trim() === "") {
-      return null;
-    }
-    const minutes = Number(input);
-    return Number.isFinite(minutes) && minutes > 0 ? minutes : null;
-  };
-
-  async function handleButtonClick() {
-    elems.button.disabled = true;
-    try {
-      if (isLocked()) {
-        await unlock();
-        return;
-      }
-      const minutes = parseMinutes(window.prompt("何分ロックしますか？", 60));
-      if (minutes === null) {
-        showDescription("設定をキャンセルしました(正の数値を入力してください)");
-        return;
-      }
-      await lock(minutes);
-    } catch (error) {
-      window.alert(`エラー。 ${error.name}, ${error.message}`);
-    } finally {
-      elems.button.disabled = false;
-    }
-  }
-
-  function init() {
-    if (!("wakeLock" in navigator)) {
-      elems.button.disabled = true;
-      showDescription("このブラウザ(または非HTTPS環境)では Wake Lock API が使えません");
-      return;
-    }
-    elems.button.addEventListener("click", handleButtonClick);
-
-    window.addEventListener("keydown", (event) => {
-      if (event.key === " ") {
-        // ボタンにフォーカスがあるときのクリック発火・スクロールを防ぐ
-        event.preventDefault();
-        if (!event.repeat && !isLocked()) {
-          handleButtonClick();
-        }
-      } else if (event.key === "Escape" && isLocked()) {
-        handleButtonClick();
-      }
-    });
-    // スペースキーによるボタンのクリックは keyup で発火するため、こちらも抑止する
-    window.addEventListener("keyup", (event) => {
-      if (event.key === " ") {
-        event.preventDefault();
-      }
-    });
-
-    // タブ非表示でブラウザに解除された Wake Lock を、表示復帰時に取り直す
-    document.addEventListener("visibilitychange", async () => {
-      if (document.visibilityState === "visible" && isLocked() && !state.wakeLock) {
-        try {
-          await acquireWakeLock();
-        } catch (error) {
-          console.error(error);
-        }
-      }
-    });
-  }
-
-  init();
-</script>

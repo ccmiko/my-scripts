@@ -34,96 +34,96 @@
       https://medium.com/hackernoon/creative-coding-using-the-microphone-to-make-sound-reactive-art-part1-164fd3d972f3
     </div>
   </div>
-</body>
 
-<script type="module">
-  const MAX_DELAY_SECONDS = 10;
+  <script type="module">
+    const MAX_DELAY_SECONDS = 10;
 
-  const elems = {
-    record: document.getElementById("record-button"),
-    stop: document.getElementById("stop-button"),
-    status: document.getElementById("status"),
-    delayInput: document.getElementById("delay-input"),
-    delayValue: document.getElementById("delay-value"),
-    volumeInput: document.getElementById("volume-input"),
-    volumeValue: document.getElementById("volume-value"),
-  };
+    const elems = {
+      record: document.getElementById("record-button"),
+      stop: document.getElementById("stop-button"),
+      status: document.getElementById("status"),
+      delayInput: document.getElementById("delay-input"),
+      delayValue: document.getElementById("delay-value"),
+      volumeInput: document.getElementById("volume-input"),
+      volumeValue: document.getElementById("volume-value"),
+    };
 
-  /** 再生中のみ値が入る */
-  const audio = {
-    stream: null,
-    ctx: null,
-    delayNode: null,
-    gainNode: null,
-  };
+    /** 再生中のみ値が入る */
+    const audio = {
+      stream: null,
+      ctx: null,
+      delayNode: null,
+      gainNode: null,
+    };
 
-  const isPlaying = () => audio.ctx !== null;
+    const isPlaying = () => audio.ctx !== null;
 
-  const updateButtons = () => {
-    elems.record.disabled = isPlaying();
-    elems.stop.disabled = !isPlaying();
-    elems.status.textContent = isPlaying() ? "再生中" : "停止中";
-  };
+    const updateButtons = () => {
+      elems.record.disabled = isPlaying();
+      elems.stop.disabled = !isPlaying();
+      elems.status.textContent = isPlaying() ? "再生中" : "停止中";
+    };
 
-  const start = async () => {
-    if (isPlaying()) {
-      return;
-    }
-    elems.record.disabled = true;
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
-      const ctx = new AudioContext();
-      const source = ctx.createMediaStreamSource(stream);
+    const start = async () => {
+      if (isPlaying()) {
+        return;
+      }
+      elems.record.disabled = true;
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+        const ctx = new AudioContext();
+        const source = ctx.createMediaStreamSource(stream);
 
-      // マイク → 遅延 → 音量 → スピーカー の順に直列で接続する
-      // (並列に繋ぐと元の経路の音がそのまま出てしまい、音量調整が効かない)
-      const delayNode = ctx.createDelay(MAX_DELAY_SECONDS);
-      delayNode.delayTime.value = Number(elems.delayInput.value);
-      const gainNode = ctx.createGain();
-      gainNode.gain.value = Number(elems.volumeInput.value) / 100;
+        // マイク → 遅延 → 音量 → スピーカー の順に直列で接続する
+        // (並列に繋ぐと元の経路の音がそのまま出てしまい、音量調整が効かない)
+        const delayNode = ctx.createDelay(MAX_DELAY_SECONDS);
+        delayNode.delayTime.value = Number(elems.delayInput.value);
+        const gainNode = ctx.createGain();
+        gainNode.gain.value = Number(elems.volumeInput.value) / 100;
 
-      source.connect(delayNode);
-      delayNode.connect(gainNode);
-      gainNode.connect(ctx.destination);
+        source.connect(delayNode);
+        delayNode.connect(gainNode);
+        gainNode.connect(ctx.destination);
 
-      Object.assign(audio, { stream, ctx, delayNode, gainNode });
-    } catch (error) {
-      console.error(error);
-      window.alert(`マイクを開始できませんでした: ${error.message}`);
-    } finally {
+        Object.assign(audio, { stream, ctx, delayNode, gainNode });
+      } catch (error) {
+        console.error(error);
+        window.alert(`マイクを開始できませんでした: ${error.message}`);
+      } finally {
+        updateButtons();
+      }
+    };
+
+    const stop = async () => {
+      if (!isPlaying()) {
+        return;
+      }
+      audio.stream.getTracks().forEach((track) => track.stop());
+      // AudioContext を閉じないと開始のたびに増え続ける
+      await audio.ctx.close();
+      Object.assign(audio, { stream: null, ctx: null, delayNode: null, gainNode: null });
       updateButtons();
-    }
-  };
+    };
 
-  const stop = async () => {
-    if (!isPlaying()) {
-      return;
-    }
-    audio.stream.getTracks().forEach((track) => track.stop());
-    // AudioContext を閉じないと開始のたびに増え続ける
-    await audio.ctx.close();
-    Object.assign(audio, { stream: null, ctx: null, delayNode: null, gainNode: null });
-    updateButtons();
-  };
+    elems.delayInput.addEventListener("input", () => {
+      const value = Number(elems.delayInput.value);
+      elems.delayValue.textContent = value.toFixed(1);
+      if (audio.delayNode) {
+        audio.delayNode.delayTime.setValueAtTime(value, audio.ctx.currentTime);
+      }
+    });
 
-  elems.delayInput.addEventListener("input", () => {
-    const value = Number(elems.delayInput.value);
-    elems.delayValue.textContent = value.toFixed(1);
-    if (audio.delayNode) {
-      audio.delayNode.delayTime.setValueAtTime(value, audio.ctx.currentTime);
-    }
-  });
+    elems.volumeInput.addEventListener("input", () => {
+      const value = Number(elems.volumeInput.value);
+      elems.volumeValue.textContent = String(value);
+      if (audio.gainNode) {
+        audio.gainNode.gain.setValueAtTime(value / 100, audio.ctx.currentTime);
+      }
+    });
 
-  elems.volumeInput.addEventListener("input", () => {
-    const value = Number(elems.volumeInput.value);
-    elems.volumeValue.textContent = String(value);
-    if (audio.gainNode) {
-      audio.gainNode.gain.setValueAtTime(value / 100, audio.ctx.currentTime);
-    }
-  });
-
-  elems.record.addEventListener("click", start);
-  elems.stop.addEventListener("click", stop);
-</script>
+    elems.record.addEventListener("click", start);
+    elems.stop.addEventListener("click", stop);
+  </script>
+</body>
 
 </html>
