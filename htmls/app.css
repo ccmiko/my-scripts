@@ -123,7 +123,27 @@ button {
   cursor: pointer;
 }
 
-button:hover:not(:disabled) {
+/* label などをボタンの見た目にする(ファイル選択の label 等) */
+.button {
+  display: inline-block;
+  font-size: 15px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+  font-weight: bold;
+}
+
+button:hover:not(:disabled),
+.button:hover {
   border-color: var(--accent);
 }
 
@@ -162,4 +182,20 @@ td {
 
 [hidden] {
   display: none !important;
+}
+
+/* QRコードの読み取り結果(common.js の createQrResultElem) */
+.qr-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.qr-result-text {
+  margin: 0;
+  font-size: 16px;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
