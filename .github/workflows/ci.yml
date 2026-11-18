@@ -33,3 +33,5 @@ jobs:
           for f in bookmarklet/dist/*.txt; do
             node -e 'const s = require("fs").readFileSync(process.argv[1], "utf8").trim(); new Function(decodeURIComponent(s.slice("javascript:".length)));' "$f"
           done
+      - name: アプリ一覧(apps.js)と manifest が一致しているか
+        run: node scripts/sync-apps.js --check

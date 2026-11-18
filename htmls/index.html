@@ -145,74 +145,10 @@
       <p id="empty" hidden>該当するアプリがありません</p>
     </div>
 
+    <script src="./apps.js"></script>
     <script>
-      const apps = [
-        // prettier-ignore
-        { file: "account.html", icon: "🔑", title: "アカウント一覧", description: "ID/PWをワンクリックでコピー(マスターパスワードで暗号化)" }, // @local-only (公開版では削除される)
-        { file: "style_slayer.html", icon: "🧹", title: "書式殺し", description: "貼り付けたテキストの書式を削除" },
-        {
-          file: "char_counter.html",
-          icon: "🔢",
-          title: "文字数カウンタ",
-          description: "文字数・全角半角・バイト数・原稿用紙換算など",
-        },
-        {
-          file: "medicine_management.html",
-          icon: "💊",
-          title: "服薬記録帳",
-          description: "おくすりを飲んだ時刻を記録し、履歴をCSVで保存",
-        },
-        { file: "fire_keeper.html", icon: "🔥", title: "火継", description: "指定時間、画面のスリープを防止" },
-        {
-          file: "pomodoro.html",
-          icon: "🍅",
-          title: "ポモドーロ",
-          description: "作業と休憩を交互に計るタイマー(スリープ防止付き)",
-        },
-        {
-          file: "ocr.html",
-          icon: "🔍",
-          title: "画像から文字起こし隊",
-          description: "画像内の文字をOCRで抽出(貼り付けにも対応)",
-        },
-        {
-          file: "qr_reader_image.html",
-          icon: "🖼️",
-          title: "QRコードリーダ(静止画版)",
-          description: "画像ファイルからQRコードを読み取り",
-        },
-        {
-          file: "qr_reader_camera.html",
-          icon: "📷",
-          title: "QRコードリーダ(カメラ版)",
-          description: "カメラでQRコードを読み取り",
-        },
-        { file: "mic.html", icon: "🎙️", title: "遅延再生くん", description: "マイク入力を遅延させて再生" },
-        {
-          file: "qr_generator.html",
-          icon: "🔳",
-          title: "QRコード生成",
-          description: "テキスト・URL・Wi-Fi設定からQRコードを作成",
-        },
-        {
-          file: "exif_cleaner.html",
-          icon: "📍",
-          title: "写真の位置情報消し",
-          description: "位置情報などのメタデータを削除し、縮小・圧縮して保存",
-        },
-        {
-          file: "date_calc.html",
-          icon: "📅",
-          title: "和暦・日付計算",
-          description: "西暦⇔和暦、○日後、日付の差、年齢",
-        },
-        {
-          file: "dev_tools.html",
-          icon: "🛠️",
-          title: "開発用変換ツール",
-          description: "JSON整形・Base64・URLエンコード・JWT・ハッシュ・UUIDなど",
-        },
-      ];
+      // アプリの一覧は apps.js で定義する
+      const apps = window.MINI_APPS;
 
       // ホーム画面から起動(PWA)している場合は同じ画面で開く。ブラウザでは従来どおり別タブで開く
       const isStandalone =

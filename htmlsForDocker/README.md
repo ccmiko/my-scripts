@@ -19,4 +19,4 @@ http://localhost:4444/ を Chrome / Edge で開き、アドレスバーの「イ
 一度開いたページはオフラインでも使える(アカウント情報はオフライン用に保存しない)。
 
 - スマホから使う場合は HTTPS が必要(Service Worker は localhost 以外では HTTPS でしか動かない)
-- アプリを追加・削除したら `htmls/sw.js` の `APP_FILES` と `CACHE_VERSION` を更新する
+- アプリを追加・削除するときは `htmls/apps.js` に1行足す・消すだけでよい

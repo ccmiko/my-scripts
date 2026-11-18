@@ -6,36 +6,27 @@
  * - CDN(cdn.jsdelivr.net)のライブラリ: バージョン固定なのでキャッシュ優先
  * - アカウント情報(NEVER_CACHE)は絶対にキャッシュしない
  *
- * アプリを追加・削除したら APP_FILES と CACHE_VERSION を更新すること。
- * 行末に local-only のマーカーを付けた行は、GitHub Pages 用のビルド(scripts/build-pages.js)で削除される。
+ * キャッシュするアプリの一覧は apps.js から作る(アプリを追加しても、ここを直す必要はない)。
+ * CACHE_VERSION は GitHub Pages 用のビルド(scripts/build-pages.js)で、ファイル内容のハッシュに置き換わる。
  */
-const CACHE_VERSION = "v3";
+importScripts("./apps.js");
+
+const CACHE_VERSION = "local";
 const CACHE_NAME = `mini-apps-${CACHE_VERSION}`;
 
-const APP_FILES = [
+/** アプリ以外で、オフラインでも必要なファイル */
+const STATIC_FILES = [
   "./",
   "./index.html",
+  "./apps.js",
   "./app.css",
   "./common.js",
   "./manifest.webmanifest",
   "./icons/icon.svg",
   "./icons/icon-192.png",
   "./icons/apple-touch-icon.png",
-  "./account.html", // @local-only (公開版では削除される)
-  "./char_counter.html",
-  "./date_calc.html",
-  "./dev_tools.html",
-  "./exif_cleaner.html",
-  "./fire_keeper.html",
-  "./medicine_management.html",
-  "./mic.html",
-  "./ocr.html",
-  "./pomodoro.html",
-  "./qr_generator.html",
-  "./qr_reader_camera.html",
-  "./qr_reader_image.html",
-  "./style_slayer.html",
 ];
+const APP_FILES = [...STATIC_FILES, ...self.MINI_APPS.map((app) => `./${app.file}`)];
 
 /** キャッシュしてはいけないファイル(機密情報) */
 const NEVER_CACHE = /\/account(\.enc)?\.json$/;

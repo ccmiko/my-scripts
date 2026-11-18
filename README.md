@@ -8,8 +8,9 @@
 
 - URL: https://ccmiko.github.io/my-scripts/
 - アカウント一覧(`account.html`)は公開しない。ローカルの Docker(`htmlsForDocker/`)だけで使う
-- 公開用のファイルは `node scripts/build-pages.js` で作る。行末に `// @local-only` を付けた行は公開版から削除される
-- アプリを追加・削除したら `htmls/sw.js` の `APP_FILES` と `CACHE_VERSION` を更新する
+- 公開用のファイルは `node scripts/build-pages.js` で作る。行末に `// @local-only` を付けた行は公開版から削除され、Service Worker のキャッシュ版は自動で更新される
+- アプリの一覧は `htmls/apps.js` だけで管理する(一覧ページ・Service Worker が読み込む)。ショートカット(`shortcut: true`)を変えたら `node scripts/sync-apps.js` で manifest を更新する
+- 公開しないアプリは `apps.js` で `localOnly: true` にする
 
 ## 開発
 
