@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>開発用変換ツール</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <meta name="theme-color" content="#2f9e44" />
+  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+  <!-- テーマ(ダークモード)をちらつかせず適用するため、head で同期的に読み込む -->
+  <script src="./common.js"></script>
+  <link rel="stylesheet" href="./app.css" />
+  <style>
+    /*
+     * 広い画面(ノートPC以上)では「ツール | 入力 | 出力」の3列にして画面の高さに収め、ページ全体はスクロールさせない。
+     * 狭い画面(スマホ等)では縦に並べ、通常どおりスクロールする。
+     */
+    .wrapper {
+      max-width: none;
+      display: grid;
+      gap: 12px;
+      grid-template-areas: "header" "input" "tools" "output";
+    }
+
+    header {
+      grid-area: header;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 4px 12px;
+    }
+
+    header h1 {
+      margin: 0;
+    }
+
+    header .theme-slot {
+      margin-left: auto;
+    }
+
+    section {
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      min-width: 0;
+    }
+
+    #input-section {
+      grid-area: input;
+    }
+
+    #tools-section {
+      grid-area: tools;
+    }
+
+    #output-section {
+      grid-area: output;
+    }
+
+    .tools {
+      display: grid;
+      gap: 8px;
+    }
+
+    /* グループ名を左、ボタンを右に並べて縦の長さを抑える */
+    .tools .group {
+      display: grid;
+      grid-template-columns: 4.2em 1fr;
+      align-items: start;
+      gap: 4px;
+    }
+
+    .tools .group-name {
+      padding-top: 4px;
+      font-size: 12px;
+      font-weight: bold;
+      color: var(--muted);
+    }
+
+    .tools .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .tools button {
+      font-size: 13px;
+      padding: 3px 8px;
+    }
+
+    .tools label {
+      width: 100%;
+      margin: 2px 0 0;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    textarea {
+      min-height: 10em;
+    }
+
+    #output[data-error="true"] {
+      color: var(--warn);
+    }
+
+    .io-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+
+    .io-header h2 {
+      margin: 0;
+    }
+
+    .io-header .spacer {
+      flex: 1;
+    }
+
+    .io-header button {
+      font-size: 13px;
+      padding: 3px 10px;
+    }
+
+    @media (min-width: 900px) and (min-height: 480px) {
+      body {
+        height: 100dvh;
+        overflow: hidden;
+      }
+
+      .wrapper {
+        height: 100dvh;
+        padding: 12px 16px;
+        grid-template-columns: 290px minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr);
+        grid-template-areas:
+          "header header header"
+          "tools input output";
+      }
+
+      #tools-section {
+        /* ボタンが入りきらないほど低い画面の場合は、この列の中だけスクロールする */
+        overflow-y: auto;
+      }
+
+      textarea {
+        flex: 1;
+        min-height: 0;
+        resize: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrapper">
+    <header>
+      <h1>開発用変換ツール</h1>
+      <span class="muted">すべてブラウザ内で処理し、入力内容はどこにも送信・保存しません。</span>
+      <!-- テーマ切り替えボタンを、左下に浮かせず(ツール列と重なるため)ここに置く -->
+      <span class="theme-slot" data-theme-button-slot></span>
+    </header>
+
+    <section id="input-section">
+      <div class="io-header">
+        <h2>入力</h2>
+        <span id="input-info" class="muted"></span>
+        <span class="spacer"></span>
+        <button id="paste" type="button">貼り付け</button>
+        <button id="clear" type="button">クリア</button>
+      </div>
+      <textarea id="input" class="mono" spellcheck="false" placeholder="変換したいテキストを入力して、変換ボタンを押す"></textarea>
+    </section>
+
+    <section id="tools-section" aria-label="変換">
+      <div id="tools" class="tools"></div>
+    </section>
+
+    <section id="output-section">
+      <div class="io-header">
+        <h2>出力</h2>
+        <span id="output-info" class="muted"></span>
+        <span class="spacer"></span>
+        <button id="to-input" type="button" title="出力を入力欄に移して、続けて変換する">入力へ戻す</button>
+        <button id="copy" type="button" class="primary">コピー</button>
+      </div>
+      <textarea id="output" class="mono" spellcheck="false" readonly></textarea>
+    </section>
+  </div>
+
+  <script type="module">
+    const $ = (id) => document.getElementById(id);
+
+    // ---------------------------------------------------------------- 変換処理
+
+    const bytesToBase64 = (bytes) => {
+      let binary = "";
+      bytes.forEach((b) => (binary += String.fromCharCode(b)));
+      const base64 = btoa(binary);
+      return $("base64-urlsafe").checked ? base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "") : base64;
+    };
+    const base64ToBytes = (text) => {
+      // 標準形式・URLセーフ形式・改行入りのどれでも受け付ける
+      let normalized = text.replace(/\s+/g, "").replace(/-/g, "+").replace(/_/g, "/");
+      normalized += "=".repeat((4 - (normalized.length % 4)) % 4);
+      return Uint8Array.from(atob(normalized), (c) => c.charCodeAt(0));
+    };
+    const decodeUtf8 = (bytes) => new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+
+    const parseJson = (text) => {
+      try {
+        return JSON.parse(text);
+      } catch (error) {
+        // エラー位置を行・列で示す(ブラウザによりメッセージの形式が異なり、位置を含まない場合もある)
+        const lineColumn = error.message.match(/line (\d+) column (\d+)/);
+        if (lineColumn) {
+          throw new Error(`JSON として正しくありません(${lineColumn[1]}行目 ${lineColumn[2]}文字目付近)\n${error.message}`);
+        }
+        const position = Number(error.message.match(/position (\d+)/)?.[1]);
+        if (Number.isInteger(position)) {
+          const before = text.slice(0, position);
+          const line = before.split("\n").length;
+          const column = position - before.lastIndexOf("\n");
+          throw new Error(`JSON として正しくありません(${line}行目 ${column}文字目付近)\n${error.message}`);
+        }
+        throw new Error(`JSON として正しくありません\n${error.message}`);
+      }
+    };
+    const sortKeys = (value) =>
+      Array.isArray(value)
+        ? value.map(sortKeys)
+        : value && typeof value === "object"
+          ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, sortKeys(value[key])]))
+          : value;
+
+    const hash = async (algorithm, text) => {
+      const digest = await crypto.subtle.digest(algorithm, new TextEncoder().encode(text));
+      return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+    };
+
+    const formatDateTime = (date) => {
+      const pad = (n, len = 2) => String(n).padStart(len, "0");
+      const offset = -date.getTimezoneOffset();
+      const sign = offset >= 0 ? "+" : "-";
+      const local =
+        `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T` +
+        `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}` +
+        `${sign}${pad(Math.floor(Math.abs(offset) / 60))}:${pad(Math.abs(offset) % 60)}`;
+      return `${local}\n${date.toISOString()}`;
+    };
+
+    /** [グループ名, [[ボタン名, 処理(入力) => 出力]]] */
+    const TOOLS = [
+      ["JSON", [
+        ["整形", (input) => JSON.stringify(parseJson(input), null, 2)],
+        ["1行に圧縮", (input) => JSON.stringify(parseJson(input))],
+        ["キー順で整形", (input) => JSON.stringify(sortKeys(parseJson(input)), null, 2)],
+        ["エスケープ", (input) => JSON.stringify(input)],
+        ["エスケープ解除", (input) => {
+          const value = parseJson(input.trim().startsWith('"') ? input : `"${input}"`);
+          if (typeof value !== "string") throw new Error("JSON の文字列ではありません");
+          return value;
+        }],
+      ]],
+      ["Base64", [
+        ["エンコード", (input) => bytesToBase64(new TextEncoder().encode(input))],
+        ["デコード", (input) => {
+          const bytes = base64ToBytes(input);
+          try {
+            return decodeUtf8(bytes);
+          } catch {
+            throw new Error(`デコードしたデータ(${bytes.length}バイト)は UTF-8 のテキストではありません`);
+          }
+        }],
+      ]],
+      ["URL", [
+        ["エンコード", (input) => encodeURIComponent(input)],
+        ["デコード", (input) => decodeURIComponent(input.replace(/\+/g, " "))],
+        ["クエリを分解", (input) => {
+          const query = input.includes("?") ? input.slice(input.indexOf("?") + 1) : input;
+          const params = new URLSearchParams(query.split("#")[0]);
+          return [...params].map(([key, value]) => `${key} = ${value}`).join("\n") || "(パラメータなし)";
+        }],
+      ]],
+      ["JWT", [
+        ["中身を見る", (input) => {
+          const parts = input.trim().split(".");
+          if (parts.length < 2) throw new Error("JWT の形式(xxx.yyy.zzz)ではありません");
+          const [header, payload] = parts.slice(0, 2).map((part) => parseJson(decodeUtf8(base64ToBytes(part))));
+          const notes = ["exp", "iat", "nbf"]
+            .filter((key) => typeof payload[key] === "number")
+            .map((key) => `${key}: ${formatDateTime(new Date(payload[key] * 1000)).split("\n")[0]}`);
+          return `// header\n${JSON.stringify(header, null, 2)}\n\n// payload\n${JSON.stringify(payload, null, 2)}` +
+            (notes.length ? `\n\n// 日時\n${notes.join("\n")}` : "") + "\n\n// ※署名は検証していません";
+        }],
+      ]],
+      ["ハッシュ", [
+        ["SHA-1", (input) => hash("SHA-1", input)],
+        ["SHA-256", (input) => hash("SHA-256", input)],
+        ["SHA-512", (input) => hash("SHA-512", input)],
+      ]],
+      ["日時", [
+        ["Unix時間⇔日時", (input) => {
+          const text = input.trim();
+          if (!text) return `${Math.floor(Date.now() / 1000)}\n${formatDateTime(new Date())}`;
+          if (/^-?\d+(\.\d+)?$/.test(text)) {
+            const num = Number(text);
+            // 桁数で秒/ミリ秒を判定する(10^11 秒 ≒ 西暦5138年)
+            const ms = Math.abs(num) >= 1e11 ? num : num * 1000;
+            return `${formatDateTime(new Date(ms))}\n(${Math.abs(num) >= 1e11 ? "ミリ秒" : "秒"}として解釈)`;
+          }
+          const date = new Date(text);
+          if (Number.isNaN(date.getTime())) throw new Error("数値(Unix時間)か、日時として解釈できる文字列を入力してください");
+          return `${Math.floor(date.getTime() / 1000)}\n${date.getTime()}(ミリ秒)`;
+        }],
+      ]],
+      ["生成", [
+        ["UUID v4", () => crypto.randomUUID()],
+        ["UUID×10", () => Array.from({ length: 10 }, () => crypto.randomUUID()).join("\n")],
+        ["パスワード", () => {
+          const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!#$%&*+-=?@_";
+          return Array.from({ length: 5 }, () =>
+            Array.from(crypto.getRandomValues(new Uint32Array(20)), (n) => chars[n % chars.length]).join("")
+          ).join("\n");
+        }],
+      ]],
+      ["文字", [
+        ["大文字に", (input) => input.toUpperCase()],
+        ["小文字に", (input) => input.toLowerCase()],
+        ["全角→半角", (input) => input.replace(/[Ａ-Ｚａ-ｚ０-９！-～]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0)).replace(/　/g, " ")],
+        ["重複行削除", (input) => [...new Set(input.split("\n"))].join("\n")],
+        ["行ソート", (input) => input.split("\n").sort((a, b) => a.localeCompare(b, "ja")).join("\n")],
+      ]],
+    ];
+
+    // ---------------------------------------------------------------- 画面
+
+    const showOutput = (text, isError = false) => {
+      $("output").value = text;
+      $("output").dataset.error = String(isError);
+      $("output-info").textContent = isError ? "エラー" : `${text.length.toLocaleString("ja-JP")} 文字`;
+    };
+
+    TOOLS.forEach(([groupName, buttons]) => {
+      const group = document.createElement("div");
+      group.className = "group";
+      const name = document.createElement("span");
+      name.className = "group-name";
+      name.textContent = groupName;
+      const buttonsElem = document.createElement("div");
+      buttonsElem.className = "buttons";
+      group.append(name, buttonsElem);
+      buttons.forEach(([label, fn]) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = label;
+        button.addEventListener("click", async () => {
+          try {
+            showOutput(String(await fn($("input").value)));
+          } catch (error) {
+            showOutput(error.message, true);
+          }
+        });
+        buttonsElem.appendChild(button);
+      });
+      if (groupName === "Base64") {
+        const option = document.createElement("label");
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.id = "base64-urlsafe";
+        option.append(checkbox, " URLセーフ(-_ を使い = 省略)");
+        buttonsElem.appendChild(option);
+      }
+      $("tools").appendChild(group);
+    });
+
+    const updateInputInfo = () => {
+      const length = $("input").value.length;
+      $("input-info").textContent = length ? `${length.toLocaleString("ja-JP")} 文字` : "";
+    };
+    $("input").addEventListener("input", updateInputInfo);
+    $("paste").addEventListener("click", async () => {
+      try {
+        $("input").value = await navigator.clipboard.readText();
+        updateInputInfo();
+      } catch (error) {
+        console.error(error);
+        window.MiniApps.showSnackBar("クリップボードを読み取れませんでした");
+      }
+    });
+    $("clear").addEventListener("click", () => {
+      $("input").value = "";
+      showOutput("");
+      $("output-info").textContent = "";
+      updateInputInfo();
+      $("input").focus();
+    });
+    $("to-input").addEventListener("click", () => {
+      if ($("output").dataset.error === "true") return;
+      $("input").value = $("output").value;
+      updateInputInfo();
+    });
+    $("copy").addEventListener("click", () => {
+      if ($("output").value) window.MiniApps.copyText($("output").value);
+    });
+  </script>
+</body>
+
+</html>

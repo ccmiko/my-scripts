@@ -1,0 +1,33 @@
+name: bookmarklet
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "bookmarklet/**"
+      - "scripts/build-bookmarklets.js"
+      - ".github/workflows/bookmarklet.yml"
+  pull_request:
+    paths:
+      - "bookmarklet/**"
+      - "scripts/build-bookmarklets.js"
+      - ".github/workflows/bookmarklet.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  check-dist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: dist が最新か確認
+        run: node scripts/build-bookmarklets.js --check
+      - name: 生成物の構文チェック
+        run: |
+          for f in bookmarklet/dist/*.txt; do
+            node -e 'const s = require("fs").readFileSync(process.argv[1], "utf8").trim(); new Function(decodeURIComponent(s.slice("javascript:".length)));' "$f"
+          done

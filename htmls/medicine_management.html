@@ -5,119 +5,337 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>服薬記録帳</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <meta name="theme-color" content="#2f9e44" />
+  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+  <!-- テーマ(ダークモード)をちらつかせず適用するため、head で同期的に読み込む -->
+  <script src="./common.js"></script>
+  <style>
+    :root {
+      --bg: #fafafa;
+      --fg: #222;
+      --muted: #777;
+      --card: #fff;
+      --border: #ddd;
+      --accent: #2f9e44;
+      --warn: #e8590c;
+    }
+
+    :root[data-theme="dark"] {
+      --bg: #1a1b1e;
+      --fg: #e6e6e6;
+      --muted: #999;
+      --card: #25262b;
+      --border: #3a3b40;
+      --accent: #51cf66;
+      --warn: #ff922b;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: system-ui, sans-serif;
+    }
+
+    .wrapper {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    section {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+    }
+
+    h2 {
+      font-size: 18px;
+      margin: 4px 0 12px;
+    }
+
+    .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    button {
+      font-size: 16px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--fg);
+      cursor: pointer;
+    }
+
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      font-weight: bold;
+      font-size: 20px;
+      padding: 12px 24px;
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      text-align: left;
+      padding: 6px 4px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    td.count {
+      white-space: nowrap;
+    }
+
+    .ok {
+      color: var(--accent);
+      font-weight: bold;
+    }
+
+    .ng {
+      color: var(--warn);
+      font-weight: bold;
+    }
+
+    .settings {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    input[type="number"] {
+      width: 4em;
+      font-size: 16px;
+    }
+  </style>
 </head>
 
 <body>
   <div class="wrapper">
-    <div>
-      <button id="add" type="button">飲んだ！</button>
-      <button id="remove" type="button">間違えて押した！</button>
-      <button id="reset" type="button">リセット</button>
-    </div>
-    <div>
+    <section>
       <!-- jsで今日の日付を挿入 -->
       <h2 id="title"></h2>
+      <div class="buttons">
+        <button id="add" class="primary" type="button">飲んだ！</button>
+        <button id="remove" type="button">間違えて押した！</button>
+        <button id="reset" type="button">今日をリセット</button>
+      </div>
       <!-- jsで今日のお薬記録を挿入 -->
       <ul id="list"></ul>
       <!-- jsで今日のお薬記録なかったらメッセージ挿入 -->
-      <p id="message"></p>
-    </div>
+      <p id="message" class="muted"></p>
+    </section>
+
+    <section>
+      <h2>直近7日間</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>日付</th>
+            <th>回数</th>
+            <th>時刻</th>
+          </tr>
+        </thead>
+        <tbody id="history"></tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>設定・書き出し</h2>
+      <div class="settings">
+        <label>1日の目標回数 <input id="target" type="number" min="0" max="20" step="1" /> 回</label>
+        <span class="muted">(0 で判定なし)</span>
+      </div>
+      <p class="buttons">
+        <button id="export" type="button">全履歴をCSVで保存</button>
+      </p>
+      <p class="muted">記録はこのブラウザ内(localStorage)にだけ保存されます。最大 <span id="retention"></span> 日分を保持します。</p>
+    </section>
   </div>
 
   <script type="module">
-    const LOCAL_STORAGE_KEY = "MEDICINE";
-    const getStorage = (key) => {
-      try {
-        const storage = window.localStorage.getItem(key);
-        return storage ? JSON.parse(storage) : {};
-      } catch (error) {
-        console.error(error);
-        return {};
-      }
+    /** 旧形式(当日分のみ)の保存キー。読み込み時に新形式へ移行する */
+    const LEGACY_STORAGE_KEY = "MEDICINE";
+    /** 新形式: { version: 2, target: number, days: { "YYYY-MM-DD": ["ISO8601", ...] } } */
+    const STORAGE_KEY = "MEDICINE_HISTORY";
+    const RETENTION_DAYS = 400;
+    const WEEKDAYS = "日月火水木金土";
+
+    const toDayKey = (date) => new Date(date).toLocaleDateString("sv-SE");
+    const formatDay = (dayKey) => {
+      const [y, m, d] = dayKey.split("-").map(Number);
+      return `${dayKey}(${WEEKDAYS[new Date(y, m - 1, d).getDay()]})`;
     };
-    const getZeroTimeDay = (date, addDay = 0) => {
+    const formatTime = (iso) => new Date(iso).toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" });
+    const addDays = (date, days) => {
       const newDate = new Date(date);
-      newDate.setDate(newDate.getDate() + addDay);
-      newDate.setHours(0);
-      newDate.setMinutes(0);
-      newDate.setSeconds(0);
-      newDate.setMilliseconds(0);
+      newDate.setDate(newDate.getDate() + days);
       return newDate;
     };
-    const toDateString = (date) => {
-      const newDate = new Date(date);
-      return `${newDate.toLocaleDateString("sv-SE")}(${"日月火水木金土".slice(
-        newDate.getDay(),
-        newDate.getDay() + 1
-      )})`;
-    };
-    const toDateTimeString = (date) => {
-      const newDate = new Date(date);
-      return `${toDateString(newDate)} ${newDate.toLocaleTimeString("sv-SE")}`;
-    };
-    /**
-     * 保存済みの記録を読み込む。最後の記録日が今日より前なら、今日の空の記録として扱う。
-     * (ページを開いたまま日付をまたいだ場合も、操作時点の日付で判定される)
-     */
-    const loadTodayRecords = () => {
-      const today = getZeroTimeDay(new Date(), 0);
-      const medicines = getStorage(LOCAL_STORAGE_KEY);
-      if (!medicines?.lastRecordDay) {
-        return { day: today, records: [] };
+
+    const readJson = (key) => {
+      try {
+        const raw = window.localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : null;
+      } catch (error) {
+        console.error(error);
+        return null;
       }
-      const lastRecordDay = getZeroTimeDay(medicines.lastRecordDay, 0);
-      if (Number.isNaN(lastRecordDay.getTime()) || today.getTime() > lastRecordDay.getTime()) {
-        return { day: today, records: [] };
-      }
-      const records = [].concat(medicines.records).filter((item) => item);
-      return { day: lastRecordDay, records };
     };
-    const refreshRecords = (lastRecordDay, records) => {
-      window.localStorage.setItem(
-        LOCAL_STORAGE_KEY,
-        JSON.stringify({
-          lastRecordDay,
-          records,
-        })
-      );
-      const titleElem = document.getElementById("title");
+
+    const loadData = () => {
+      const data = readJson(STORAGE_KEY);
+      const result = {
+        version: 2,
+        target: Number.isInteger(data?.target) ? data.target : 0,
+        days: data?.days && typeof data.days === "object" ? data.days : {},
+      };
+      // 旧形式からの移行(当日分しか持っていなかったので、その日の記録として取り込む)
+      const legacy = readJson(LEGACY_STORAGE_KEY);
+      if (legacy?.lastRecordDay && Array.isArray(legacy.records)) {
+        legacy.records
+          .map((record) => record?.stamping)
+          .filter((stamp) => stamp && !Number.isNaN(new Date(stamp).getTime()))
+          .forEach((stamp) => {
+            const key = toDayKey(stamp);
+            const list = (result.days[key] ??= []);
+            const iso = new Date(stamp).toISOString();
+            if (!list.includes(iso)) list.push(iso);
+          });
+        saveData(result);
+        window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+      }
+      return result;
+    };
+
+    const saveData = (data) => {
+      // 古い記録を削除する
+      const oldestKey = toDayKey(addDays(new Date(), -RETENTION_DAYS));
+      Object.keys(data.days).forEach((key) => {
+        if (key < oldestKey || data.days[key].length === 0) delete data.days[key];
+      });
+      Object.values(data.days).forEach((list) => list.sort());
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    };
+
+    /** 目標回数に対する判定を表示用に返す */
+    const judge = (count, target) => {
+      if (!target) return null;
+      return count >= target ? { text: "✓", className: "ok" } : { text: `あと${target - count}`, className: "ng" };
+    };
+
+    const render = () => {
+      const data = loadData();
+      const todayKey = toDayKey(new Date());
+      const todayRecords = data.days[todayKey] ?? [];
+
+      document.getElementById("title").textContent = `${formatDay(todayKey)} のおくすり記録`;
       const listElem = document.getElementById("list");
-      const messageElem = document.getElementById("message");
-      titleElem.textContent = `${toDateString(lastRecordDay)} のおくすり記録`;
       listElem.textContent = "";
-      messageElem.textContent = "";
-      if (records.length === 0) {
-        messageElem.textContent = "おくすり記録がありません";
-      } else {
-        records.forEach((record) => {
-          const liElem = document.createElement("li");
-          liElem.textContent = toDateTimeString(record.stamping);
-          listElem.appendChild(liElem);
-        });
+      todayRecords.forEach((iso, index) => {
+        const li = document.createElement("li");
+        li.textContent = `${index + 1}回目 ${formatTime(iso)}`;
+        listElem.appendChild(li);
+      });
+      const judged = judge(todayRecords.length, data.target);
+      document.getElementById("message").textContent =
+        todayRecords.length === 0
+          ? "おくすり記録がありません"
+          : judged?.className === "ok" ? "今日の目標回数を達成しました" : "";
+
+      const historyElem = document.getElementById("history");
+      historyElem.textContent = "";
+      for (let i = 0; i < 7; i++) {
+        const key = toDayKey(addDays(new Date(), -i));
+        const records = data.days[key] ?? [];
+        const row = historyElem.insertRow(-1);
+        row.insertCell(-1).textContent = i === 0 ? `${formatDay(key)} 今日` : formatDay(key);
+        const countCell = row.insertCell(-1);
+        countCell.className = "count";
+        countCell.textContent = `${records.length}回 `;
+        const mark = judge(records.length, data.target);
+        if (mark) {
+          const span = document.createElement("span");
+          span.className = mark.className;
+          span.textContent = mark.text;
+          countCell.appendChild(span);
+        }
+        row.insertCell(-1).textContent = records.map(formatTime).join(", ") || "-";
       }
+
+      const targetElem = document.getElementById("target");
+      if (document.activeElement !== targetElem) targetElem.value = String(data.target);
     };
-    const init = () => {
-      const { day, records } = loadTodayRecords();
-      refreshRecords(day, records);
+
+    const updateToday = (updater) => {
+      const data = loadData();
+      const key = toDayKey(new Date());
+      data.days[key] = updater([...(data.days[key] ?? [])]);
+      saveData(data);
+      render();
     };
+
     document.getElementById("add").addEventListener("click", () => {
-      const { day, records } = loadTodayRecords();
-      records.push({ stamping: new Date() });
-      refreshRecords(day, records);
+      updateToday((records) => [...records, new Date().toISOString()]);
     });
     document.getElementById("remove").addEventListener("click", () => {
-      const { day, records } = loadTodayRecords();
-      records.pop();
-      refreshRecords(day, records);
+      updateToday((records) => records.slice(0, -1));
     });
     document.getElementById("reset").addEventListener("click", () => {
-      if (!window.confirm("今日の記録をすべて削除しますか？")) {
-        return;
-      }
-      refreshRecords(getZeroTimeDay(new Date(), 0), []);
+      if (!window.confirm("今日の記録をすべて削除しますか？")) return;
+      updateToday(() => []);
+    });
+    document.getElementById("target").addEventListener("change", (event) => {
+      const value = Number(event.target.value);
+      const data = loadData();
+      data.target = Number.isInteger(value) && value >= 0 && value <= 20 ? value : 0;
+      saveData(data);
+      render();
+    });
+    document.getElementById("export").addEventListener("click", () => {
+      const data = loadData();
+      const rows = [["日付", "曜日", "回数", "時刻"]];
+      Object.keys(data.days).sort().forEach((key) => {
+        const records = data.days[key];
+        rows.push([key, formatDay(key).slice(-2, -1), String(records.length), records.map(formatTime).join(" ")]);
+      });
+      const csv = rows.map((row) => row.join(",")).join("\r\n");
+      const anchor = document.createElement("a");
+      // Excel で文字化けしないよう BOM を付ける
+      anchor.href = URL.createObjectURL(new Blob(["﻿", csv], { type: "text/csv" }));
+      anchor.download = `medicine_${toDayKey(new Date())}.csv`;
+      anchor.click();
+      setTimeout(() => URL.revokeObjectURL(anchor.href), 1000);
     });
 
-    init();
+    document.getElementById("retention").textContent = String(RETENTION_DAYS);
+    render();
+    // 開いたまま日付をまたいだ場合や、別タブで記録した場合に表示を更新する
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") render();
+    });
+    window.addEventListener("storage", (event) => {
+      if (event.key === STORAGE_KEY) render();
+    });
   </script>
 </body>
 

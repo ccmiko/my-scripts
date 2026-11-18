@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- ミニアプリたちのアイコン: 緑の角丸に 2×2 のタイル -->
+  <rect width="512" height="512" rx="112" fill="#2f9e44"/>
+  <g fill="#ffffff">
+    <rect x="112" y="112" width="124" height="124" rx="28"/>
+    <rect x="276" y="112" width="124" height="124" rx="28" opacity="0.75"/>
+    <rect x="112" y="276" width="124" height="124" rx="28" opacity="0.75"/>
+    <circle cx="338" cy="338" r="62"/>
+  </g>
+</svg>

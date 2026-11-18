@@ -5,6 +5,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>火継</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <meta name="theme-color" content="#2f9e44" />
+  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+  <!-- テーマ(ダークモード)をちらつかせず適用するため、head で同期的に読み込む -->
+  <script src="./common.js"></script>
 </head>
 
 <body>
@@ -148,46 +154,9 @@
       playUnlockSound();
     }
 
-    // ロック解除の効果音。ここはAI生成コードの丸コピ
+    // ロック解除の効果音(共通処理 common.js)
     function playUnlockSound() {
-      const volume = getVolumePercent() / 100;
-      if (volume <= 0) {
-        return;
-      }
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      // 全体の音量。各音のエンベロープ(0→1→0)の後段に掛ける
-      const masterGain = ctx.createGain();
-      masterGain.gain.value = volume;
-      masterGain.connect(ctx.destination);
-      function playStep(freq, startTime, duration) {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "triangle";
-        osc.frequency.value = freq;
-        // 接続
-        osc.connect(gain);
-        gain.connect(masterGain);
-        const fadeTime = 0.02; // 20msのフェード（これでクリックノイズが消えます）
-        // --- 音量エンベロープの設定 ---
-        // 1. 開始時の音量を0にする
-        gain.gain.setValueAtTime(0, startTime);
-        // 2. fadeTimeかけて音量を1に上げる（フェードイン）
-        gain.gain.linearRampToValueAtTime(1, startTime + fadeTime);
-        // 3. 終了の少し前まで音量を維持
-        gain.gain.setValueAtTime(1, startTime + duration - fadeTime);
-        // 4. 最後にかけて音量を0に下げる（フェードアウト）
-        gain.gain.linearRampToValueAtTime(0, startTime + duration);
-        osc.start(startTime);
-        osc.stop(startTime + duration);
-      }
-      const now = ctx.currentTime;
-      const freqs = [523.25, 659.25, 783.99, 1046.5, 1318.51];
-      const stepSeconds = 0.2;
-      freqs.forEach((f, i) => {
-        playStep(f, now + i * stepSeconds, stepSeconds);
-      });
-      // 再生し終わったら AudioContext を解放する
-      setTimeout(() => ctx.close(), (freqs.length * stepSeconds + 0.5) * 1000);
+      window.MiniApps.playChime(getVolumePercent() / 100);
     }
 
     /** 正の数値以外(キャンセル・空・0・負数・数値以外)は null を返す */

@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>アカウント一覧</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="theme-color" content="#2f9e44" />
+    <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+    <!-- テーマ(ダークモード)をちらつかせず適用するため、head で同期的に読み込む -->
+    <script src="./common.js"></script>
     <style>
     /*
      * コピペ元: https://webliker.info/css/75964/
@@ -77,47 +83,256 @@
     table tbody td:hover {
       background-color: rgb(145, 173, 205);
     }
+    .panel {
+      width: 80%;
+      max-width: 1200px;
+      margin: 16px auto;
+      padding: 12px 16px;
+      border: 1px solid #a8b7c5;
+      border-radius: 8px;
+      box-sizing: border-box;
+    }
+
+    .panel h2 {
+      font-size: 18px;
+      margin: 0 0 8px;
+    }
+
+    .panel label {
+      display: block;
+      margin: 8px 0;
+    }
+
+    .panel input[type="password"],
+    .panel textarea {
+      font-size: 16px;
+      padding: 4px;
+      box-sizing: border-box;
+    }
+
+    .panel textarea {
+      width: 100%;
+      height: 20em;
+      font-family: monospace;
+    }
+
+    .guide {
+      border: 2px solid #2f9e44;
+    }
+
+    .guide ol {
+      margin: 4px 0;
+      padding-left: 1.4em;
+      line-height: 1.7;
+    }
+
+    .guide code,
+    .hint code {
+      font-size: 0.95em;
+    }
+
+    .warning {
+      background: #fff4e6;
+      border-color: #e8590c;
+      color: #7a2e00;
+    }
+
+    .hint {
+      font-size: 13px;
+      /* ライト/ダークどちらでも読めるよう、文字色を薄くするだけにする */
+      opacity: 0.75;
+    }
+
+    .toolbar {
+      width: 80%;
+      max-width: 1200px;
+      margin: 8px auto;
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      align-items: center;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
   </style>
 </head>
-  <body>
-    <div>
-      <table>
-        <caption>
-          アカウント一覧
-        </caption>
-        <thead>
-          <tr>
-            <th>概要</th>
-            <th>ID</th>
-            <th>PW</th>
-            <th>リンク</th>
-            <th>備考</th>
-          </tr>
-        </thead>
-        <tbody id="tBody">
-          <!-- jsでデータを挿入する -->
-        </tbody>
-      </table>
-    </div>
 
-  <script src="./common.js"></script>
+<body>
+  <!-- 暗号化ファイル(account.enc.json)がある場合のロック画面 -->
+  <form id="unlock-panel" class="panel" hidden>
+    <h2>🔒 ロック中</h2>
+    <label>マスターパスワード
+      <input id="unlock-password" type="password" autocomplete="current-password" required autofocus />
+    </label>
+    <button type="submit">ロック解除</button>
+    <span id="unlock-message"></span>
+  </form>
+
+  <!-- 平文の account.json を読み込んだ場合の警告 -->
+  <div id="plain-warning" class="panel warning" hidden>
+    平文の <code>account.json</code> を読み込んでいます。下の「暗号化ファイルを作る」で
+    <code>account.enc.json</code> を作成し、<code>account.json</code> は削除することをおすすめします。
+  </div>
+
+  <!-- データ(account.enc.json / account.json)が無い初回だけ表示する案内 -->
+  <div id="first-guide" class="panel guide" hidden>
+    <h2>👋 はじめに</h2>
+    <ol>
+      <li>下の表は<strong>サンプル</strong>です。その下の「JSON(平文)」欄のサンプルを、自分のアカウント情報に書き換えてください(書き換えると表にすぐ反映されます)。</li>
+      <li>マスターパスワードを2回入力して「暗号化して保存」を押すと、<code>account.enc.json</code> がダウンロードされます。</li>
+      <li>そのファイルを <code>htmls/</code> フォルダに置いてページを再読み込みすると、マスターパスワードで開けるようになります。</li>
+    </ol>
+    <p class="hint">
+      項目: <code>service</code> サービス名 / <code>id</code> ID / <code>pw</code> パスワード /
+      <code>link</code> ログイン画面などの URL(http(s) のみ) / <code>note</code> 備考(<code>\n</code> で改行)。使わない項目は省略できます。
+    </p>
+  </div>
+
+  <div id="toolbar" class="toolbar" hidden>
+    <span id="auto-lock-info" class="hint"></span>
+    <button id="lock" type="button">ロックする</button>
+  </div>
+
+  <div id="table-container" hidden>
+    <table>
+      <caption id="table-caption">アカウント一覧</caption>
+      <thead>
+        <tr>
+          <th>概要</th>
+          <th>ID</th>
+          <th>PW</th>
+          <th>リンク</th>
+          <th>備考</th>
+        </tr>
+      </thead>
+      <tbody id="tBody">
+        <!-- jsでデータを挿入する -->
+      </tbody>
+    </table>
+  </div>
+
+  <details id="encrypt-panel" class="panel">
+    <summary>暗号化ファイルを作る / 作り直す</summary>
+    <p class="hint">
+      アカウント一覧の JSON をマスターパスワードで暗号化(AES-GCM / PBKDF2)し、<code>account.enc.json</code> として保存します。
+      処理はすべてこのブラウザ内で行い、どこにも送信しません。保存したファイルを <code>htmls/</code> に置いてください。
+    </p>
+    <label>JSON(平文)
+      <textarea id="plain-json" spellcheck="false" placeholder='[{"service": "app", "id": "id", "pw": "password", "link": "https://...", "note": "メモ"}]'></textarea>
+    </label>
+    <label>JSONファイルから読み込む <input id="plain-file" type="file" accept=".json,application/json" /></label>
+    <label>マスターパスワード <input id="new-password" type="password" autocomplete="new-password" /></label>
+    <label>マスターパスワード(確認) <input id="new-password-confirm" type="password" autocomplete="new-password" /></label>
+    <button id="encrypt" type="button">暗号化して保存</button>
+    <span id="encrypt-message"></span>
+    <p class="hint">
+      ロック解除中は「今の内容を下の欄に読み込む」で中身を取り出して編集し、暗号化し直せます。
+      <button id="load-current" type="button" disabled>今の内容を下の欄に読み込む</button>
+    </p>
+  </details>
+
   <script type="module">
+    /** 暗号化ファイルの形式。互換性のため変更時は format を上げること */
+    const ENC_FORMAT = "my-scripts-account-v1";
+    const PBKDF2_ITERATIONS = 600000;
+    /** 操作がない状態がこの時間続いたら自動でロックする */
+    const AUTO_LOCK_MS = 5 * 60 * 1000;
+
+    const elems = {
+      unlockPanel: document.getElementById("unlock-panel"),
+      unlockPassword: document.getElementById("unlock-password"),
+      unlockMessage: document.getElementById("unlock-message"),
+      plainWarning: document.getElementById("plain-warning"),
+      toolbar: document.getElementById("toolbar"),
+      autoLockInfo: document.getElementById("auto-lock-info"),
+      tableContainer: document.getElementById("table-container"),
+      tBody: document.getElementById("tBody"),
+      encryptPanel: document.getElementById("encrypt-panel"),
+      plainJson: document.getElementById("plain-json"),
+      firstGuide: document.getElementById("first-guide"),
+      tableCaption: document.getElementById("table-caption"),
+      loadCurrent: document.getElementById("load-current"),
+      encryptMessage: document.getElementById("encrypt-message"),
+    };
+
+    /** 初回(データが無いとき)に表示・入力欄に入れておくサンプル */
+    const SAMPLE_ACCOUNTS = [
+      {
+        service: "メールサービス",
+        id: "taro@example.com",
+        pw: "sample-password-1",
+        link: "https://mail.example.com/login",
+        note: "2段階認証あり\n予備コードは手帳の最後のページ",
+      },
+      {
+        service: "ネット銀行",
+        id: "12345678",
+        pw: "sample-password-2",
+        link: "https://bank.example.com/",
+        note: "暗証番号は別管理",
+      },
+      {
+        service: "社内Wi-Fi(リンク・備考なしの例)",
+        id: "guest",
+        pw: "sample-password-3",
+      },
+    ];
+
+    // ---------------------------------------------------------------- 暗号化
+
+    const toBase64 = (bytes) => btoa(String.fromCharCode(...new Uint8Array(bytes)));
+    const fromBase64 = (text) => Uint8Array.from(atob(text), (c) => c.charCodeAt(0));
+
+    const deriveKey = async (password, salt, iterations) => {
+      const baseKey = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveKey"]);
+      return crypto.subtle.deriveKey(
+        { name: "PBKDF2", hash: "SHA-256", salt, iterations },
+        baseKey,
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["encrypt", "decrypt"]
+      );
+    };
+
+    const encryptJson = async (value, password) => {
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const key = await deriveKey(password, salt, PBKDF2_ITERATIONS);
+      const data = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, new TextEncoder().encode(JSON.stringify(value)));
+      return {
+        format: ENC_FORMAT,
+        kdf: "PBKDF2-SHA256",
+        iterations: PBKDF2_ITERATIONS,
+        salt: toBase64(salt),
+        iv: toBase64(iv),
+        data: toBase64(data),
+      };
+    };
+
+    const decryptJson = async (enc, password) => {
+      if (enc?.format !== ENC_FORMAT) {
+        throw new Error(`未対応の形式です (${enc?.format})`);
+      }
+      const key = await deriveKey(password, fromBase64(enc.salt), enc.iterations);
+      let plain;
+      try {
+        plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: fromBase64(enc.iv) }, key, fromBase64(enc.data));
+      } catch {
+        throw new Error("パスワードが違います");
+      }
+      return JSON.parse(new TextDecoder().decode(plain));
+    };
+
+    // ---------------------------------------------------------------- 表示
+
     const createCopyButton = (value) => {
       const button = document.createElement("button");
       button.type = "button";
       button.textContent = "コピー";
       button.addEventListener("click", () => window.MiniApps.copyText(value));
       return button;
-    };
-
-    /** http(s)以外(javascript: 等)のURLは無効扱いにする */
-    const toSafeUrl = (link) => {
-      try {
-        const url = new URL(link);
-        return ["http:", "https:"].includes(url.protocol) ? url.href : null;
-      } catch {
-        return null;
-      }
     };
 
     /** 改行(\n または <br>)だけを反映し、それ以外はテキストとして表示する */
@@ -151,47 +366,214 @@
       }
     ]
     */
-    fetch("./account.json")
-      .then((result) => {
-        if (!result.ok) {
-          throw new Error(`account.json を取得できません (${result.status})`);
+    const renderAccounts = (accounts) => {
+      if (!Array.isArray(accounts)) {
+        throw new Error("JSON の最上位は配列にしてください");
+      }
+      elems.tBody.textContent = "";
+      accounts.forEach((item) => {
+        const row = elems.tBody.insertRow(-1);
+
+        const serviceCell = row.insertCell(-1);
+        serviceCell.textContent = item.service ?? "";
+        serviceCell.style.fontWeight = "bold";
+
+        appendCopyCell(row, item.id);
+        appendCopyCell(row, item.pw);
+
+        const linkCell = row.insertCell(-1);
+        const url = window.MiniApps.toHttpUrl(item.link);
+        if (url) {
+          const anchor = document.createElement("a");
+          anchor.href = url.href;
+          anchor.target = "_blank";
+          anchor.rel = "noopener noreferrer";
+          anchor.textContent = "開く";
+          linkCell.appendChild(anchor);
+          linkCell.appendChild(document.createElement("br"));
+          linkCell.appendChild(createCopyButton(url.href));
+        } else {
+          linkCell.textContent = "-";
         }
-        return result.json();
-      })
-      .then((json) => {
-        const table = document.getElementById("tBody");
-        json.forEach((item) => {
-          const row = table.insertRow(-1);
 
-          const serviceCell = row.insertCell(-1);
-          serviceCell.textContent = item.service ?? "";
-          serviceCell.style.fontWeight = "bold";
-
-          appendCopyCell(row, item.id);
-          appendCopyCell(row, item.pw);
-
-          const linkCell = row.insertCell(-1);
-          const safeUrl = toSafeUrl(item.link);
-          if (safeUrl) {
-            const anchor = document.createElement("a");
-            anchor.href = safeUrl;
-            anchor.target = "_blank";
-            anchor.rel = "noopener noreferrer";
-            anchor.textContent = "開く";
-            linkCell.appendChild(anchor);
-            linkCell.appendChild(document.createElement("br"));
-            linkCell.appendChild(createCopyButton(safeUrl));
-          } else {
-            linkCell.textContent = "-";
-          }
-
-          appendMultilineText(row.insertCell(-1), item.note);
-        });
-      })
-      .catch((error) => {
-        console.error(error);
-        window.alert(`${error.message}\naccount.sample.json をコピーして account.json を作成してください`);
+        appendMultilineText(row.insertCell(-1), item.note);
       });
+      elems.tableContainer.hidden = false;
+    };
+
+    // ---------------------------------------------------------------- ロック制御
+
+    const state = {
+      /** 復号済みのデータ(ロック中は null) */
+      accounts: null,
+      /** 読み込んだ暗号化ファイル(平文運用時は null) */
+      encrypted: null,
+      /** データが無く、入力欄の内容をサンプルとして表に映している状態 */
+      previewMode: false,
+      autoLockTimer: null,
+    };
+
+    const lock = () => {
+      state.accounts = null;
+      elems.tBody.textContent = "";
+      elems.tableContainer.hidden = true;
+      elems.toolbar.hidden = true;
+      elems.loadCurrent.disabled = true;
+      elems.unlockPanel.hidden = false;
+      elems.unlockPassword.value = "";
+      elems.unlockPassword.focus();
+      clearTimeout(state.autoLockTimer);
+    };
+
+    const resetAutoLock = () => {
+      if (!state.encrypted || !state.accounts) return;
+      clearTimeout(state.autoLockTimer);
+      state.autoLockTimer = setTimeout(() => {
+        lock();
+        elems.unlockMessage.textContent = "一定時間操作がなかったためロックしました";
+      }, AUTO_LOCK_MS);
+    };
+
+    const showUnlocked = (accounts) => {
+      renderAccounts(accounts);
+      state.accounts = accounts;
+      elems.loadCurrent.disabled = false;
+      if (state.encrypted) {
+        elems.unlockPanel.hidden = true;
+        elems.toolbar.hidden = false;
+        elems.autoLockInfo.textContent = `${AUTO_LOCK_MS / 60000}分間操作がないと自動でロックします`;
+        resetAutoLock();
+      }
+    };
+
+    elems.unlockPanel.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const submitButton = elems.unlockPanel.querySelector("button");
+      submitButton.disabled = true;
+      elems.unlockMessage.textContent = "解除中...";
+      try {
+        const accounts = await decryptJson(state.encrypted, elems.unlockPassword.value);
+        elems.unlockMessage.textContent = "";
+        showUnlocked(accounts);
+      } catch (error) {
+        console.error(error);
+        elems.unlockMessage.textContent = error.message;
+        elems.unlockPassword.select();
+      } finally {
+        submitButton.disabled = false;
+      }
+    });
+    document.getElementById("lock").addEventListener("click", lock);
+    ["pointerdown", "keydown"].forEach((type) => document.addEventListener(type, resetAutoLock));
+
+    // ---------------------------------------------------------------- 暗号化ファイル作成
+
+    document.getElementById("plain-file").addEventListener("change", async (event) => {
+      const file = event.target.files[0];
+      if (file) elems.plainJson.value = await file.text();
+      event.target.value = "";
+      renderPreview();
+    });
+
+    /** 初回の案内中は、入力欄の JSON をそのまま表に映して書き方を確かめられるようにする */
+    const renderPreview = () => {
+      if (!state.previewMode) return;
+      try {
+        renderAccounts(JSON.parse(elems.plainJson.value || "[]"));
+        elems.encryptMessage.textContent = "";
+      } catch (error) {
+        elems.encryptMessage.textContent = `JSON の書き方が正しくありません(表は直前の内容のまま): ${error.message}`;
+      }
+    };
+    elems.plainJson.addEventListener("input", renderPreview);
+
+    elems.loadCurrent.addEventListener("click", () => {
+      if (state.accounts) elems.plainJson.value = JSON.stringify(state.accounts, null, 2);
+    });
+
+    document.getElementById("encrypt").addEventListener("click", async () => {
+      const password = document.getElementById("new-password").value;
+      const confirm = document.getElementById("new-password-confirm").value;
+      const showMessage = (msg) => (elems.encryptMessage.textContent = msg);
+      let accounts;
+      try {
+        accounts = JSON.parse(elems.plainJson.value);
+        if (!Array.isArray(accounts)) throw new Error("最上位が配列ではありません");
+      } catch (error) {
+        showMessage(`JSON が正しくありません: ${error.message}`);
+        return;
+      }
+      if (password.length < 8) {
+        showMessage("マスターパスワードは8文字以上にしてください");
+        return;
+      }
+      if (password !== confirm) {
+        showMessage("確認用のパスワードが一致しません");
+        return;
+      }
+      showMessage("暗号化中...");
+      const encrypted = await encryptJson(accounts, password);
+      const anchor = document.createElement("a");
+      anchor.href = URL.createObjectURL(new Blob([JSON.stringify(encrypted, null, 2)], { type: "application/json" }));
+      anchor.download = "account.enc.json";
+      anchor.click();
+      setTimeout(() => URL.revokeObjectURL(anchor.href), 1000);
+      // 平文を画面に残さない
+      elems.plainJson.value = "";
+      document.getElementById("new-password").value = "";
+      document.getElementById("new-password-confirm").value = "";
+      showMessage("account.enc.json を保存しました。htmls/ に置き、平文の account.json は削除してください");
+    });
+
+    // ---------------------------------------------------------------- 初期化
+
+    /** JSON を取得する。存在しない(404 や、サーバー設定により HTML が返る)場合は null */
+    const fetchJson = async (path) => {
+      const response = await fetch(path, { cache: "no-store" });
+      if (!response.ok) return null;
+      const text = await response.text();
+      if (/^\s*</.test(text)) return null;
+      try {
+        return JSON.parse(text);
+      } catch (error) {
+        throw new Error(`${path.replace("./", "")} が JSON として正しくありません (${error.message})`);
+      }
+    };
+
+    const init = async () => {
+      if (!window.crypto?.subtle) {
+        elems.encryptPanel.hidden = true;
+      }
+      try {
+        const encrypted = await fetchJson("./account.enc.json");
+        if (encrypted) {
+          if (!window.crypto?.subtle) {
+            throw new Error("このブラウザ(または非HTTPS環境)では暗号化機能が使えません。localhost で開いてください");
+          }
+          state.encrypted = encrypted;
+          lock();
+          return;
+        }
+        const plain = await fetchJson("./account.json");
+        if (plain) {
+          elems.plainWarning.hidden = false;
+          showUnlocked(plain);
+          return;
+        }
+        // 初回: 案内を出し、整形したサンプルを入力欄と表に入れた状態で始める
+        state.previewMode = true;
+        elems.firstGuide.hidden = false;
+        elems.tableCaption.textContent = "アカウント一覧(サンプル表示)";
+        elems.plainJson.value = JSON.stringify(SAMPLE_ACCOUNTS, null, 2);
+        renderAccounts(SAMPLE_ACCOUNTS);
+        elems.encryptPanel.open = true;
+      } catch (error) {
+        console.error(error);
+        window.alert(navigator.onLine ? error.message : "オフラインのためアカウント情報を読み込めません(アカウント情報はオフライン用に保存しません)");
+      }
+    };
+
+    init();
   </script>
 </body>
 

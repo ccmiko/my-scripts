@@ -5,48 +5,198 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ミニアプリたち</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <meta name="theme-color" content="#2f9e44" />
+  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+  <!-- テーマ(ダークモード)をちらつかせず適用するため、head で同期的に読み込む -->
+  <script src="./common.js"></script>
   <style>
-    li {
-      font-size: 20px;
-      margin: 10px 0;
+    :root {
+      --bg: #f4f5f7;
+      --fg: #1f2328;
+      --muted: #6a737d;
+      --card: #ffffff;
+      --card-hover: #eef6f1;
+      --border: #d8dee4;
+      --accent: #2f9e44;
+    }
+
+    :root[data-theme="dark"] {
+      --bg: #16171a;
+      --fg: #e6e6e6;
+      --muted: #9aa0a6;
+      --card: #222327;
+      --card-hover: #2a332d;
+      --border: #34363b;
+      --accent: #51cf66;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: system-ui, -apple-system, "Hiragino Sans", sans-serif;
+    }
+
+    .wrapper {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      font-size: 22px;
+      margin: 0;
+    }
+
+    #search {
+      flex: 1 1 200px;
+      max-width: 320px;
+      font-size: 16px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--fg);
+    }
+
+    #list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 12px;
+    }
+
+    #list a {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      height: 100%;
+      padding: 14px 16px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: inherit;
+      text-decoration: none;
+      transition: background-color 0.15s, transform 0.15s;
+    }
+
+    #list a:hover,
+    #list a:focus-visible {
+      background: var(--card-hover);
+      border-color: var(--accent);
+      transform: translateY(-1px);
+    }
+
+    .icon {
+      font-size: 28px;
+      line-height: 1;
+    }
+
+    .title {
+      display: block;
+      font-size: 17px;
+      font-weight: bold;
+      margin-bottom: 4px;
     }
 
     .description {
       display: block;
-      font-size: 14px;
-      color: #666;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    #empty {
+      color: var(--muted);
     }
   </style>
 </head>
 
 <body>
-  <ul id="list">
-    <!-- jsでデータを挿入する -->
-  </ul>
+  <div class="wrapper">
+    <header>
+      <h1>ミニアプリたち</h1>
+      <input id="search" type="search" placeholder="絞り込み(名前・説明)" aria-label="アプリを絞り込む" />
+    </header>
+    <ul id="list">
+      <!-- jsでデータを挿入する -->
+    </ul>
+    <p id="empty" hidden>該当するアプリがありません</p>
+  </div>
 
   <script>
     const apps = [
-      { file: 'account.html', title: 'アカウント一覧', description: 'account.json のID/PWをワンクリックでコピー' },
-      { file: 'style_slayer.html', title: '書式殺し', description: '貼り付けたテキストの書式を削除' },
-      { file: 'medicine_management.html', title: '服薬記録帳', description: '今日おくすりを飲んだ時刻を記録' },
-      { file: 'fire_keeper.html', title: '火継', description: '指定時間、画面のスリープを防止' },
-      { file: 'ocr.html', title: '画像から文字起こし隊', description: '画像内の文字をOCRで抽出' },
-      { file: 'qr_reader_image.html', title: 'QRコードリーダ(静止画版)', description: '画像ファイルからQRコードを読み取り' },
-      { file: 'qr_reader_camera.html', title: 'QRコードリーダ(カメラ版)', description: 'カメラでQRコードを読み取り' },
-      { file: 'mic.html', title: '遅延再生くん', description: 'マイク入力を遅延させて再生' },
+      { file: 'account.html', icon: '🔑', title: 'アカウント一覧', description: 'ID/PWをワンクリックでコピー(マスターパスワードで暗号化)' },
+      { file: 'style_slayer.html', icon: '🧹', title: '書式殺し', description: '貼り付けたテキストの書式を削除' },
+      { file: 'char_counter.html', icon: '🔢', title: '文字数カウンタ', description: '文字数・全角半角・バイト数・原稿用紙換算など' },
+      { file: 'medicine_management.html', icon: '💊', title: '服薬記録帳', description: 'おくすりを飲んだ時刻を記録し、履歴をCSVで保存' },
+      { file: 'fire_keeper.html', icon: '🔥', title: '火継', description: '指定時間、画面のスリープを防止' },
+      { file: 'pomodoro.html', icon: '🍅', title: 'ポモドーロ', description: '作業と休憩を交互に計るタイマー(スリープ防止付き)' },
+      { file: 'ocr.html', icon: '🔍', title: '画像から文字起こし隊', description: '画像内の文字をOCRで抽出(貼り付けにも対応)' },
+      { file: 'qr_reader_image.html', icon: '🖼️', title: 'QRコードリーダ(静止画版)', description: '画像ファイルからQRコードを読み取り' },
+      { file: 'qr_reader_camera.html', icon: '📷', title: 'QRコードリーダ(カメラ版)', description: 'カメラでQRコードを読み取り' },
+      { file: 'mic.html', icon: '🎙️', title: '遅延再生くん', description: 'マイク入力を遅延させて再生' },
+      { file: 'qr_generator.html', icon: '🔳', title: 'QRコード生成', description: 'テキスト・URL・Wi-Fi設定からQRコードを作成' },
+      { file: 'exif_cleaner.html', icon: '📍', title: '写真の位置情報消し', description: '位置情報などのメタデータを削除し、縮小・圧縮して保存' },
+      { file: 'date_calc.html', icon: '📅', title: '和暦・日付計算', description: '西暦⇔和暦、○日後、日付の差、年齢' },
+      { file: 'dev_tools.html', icon: '🛠️', title: '開発用変換ツール', description: 'JSON整形・Base64・URLエンコード・JWT・ハッシュ・UUIDなど' },
     ];
+
+    // ホーム画面から起動(PWA)している場合は同じ画面で開く。ブラウザでは従来どおり別タブで開く
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
     const parentElem = document.getElementById('list');
-    apps.forEach(({ file, title, description }) => {
+    const items = apps.map(({ file, icon, title, description }) => {
       const li = document.createElement('li');
       const anchor = document.createElement('a');
       anchor.href = `./${file}`;
-      anchor.target = '_blank';
-      anchor.textContent = title;
+      if (!isStandalone) anchor.target = '_blank';
+
+      const iconElem = document.createElement('span');
+      iconElem.className = 'icon';
+      iconElem.setAttribute('aria-hidden', 'true');
+      iconElem.textContent = icon;
+
+      const body = document.createElement('span');
+      const titleElem = document.createElement('span');
+      titleElem.className = 'title';
+      titleElem.textContent = title;
       const desc = document.createElement('span');
       desc.className = 'description';
-      desc.textContent = `${description} (${file})`;
-      li.append(anchor, desc);
+      desc.textContent = description;
+      body.append(titleElem, desc);
+
+      anchor.append(iconElem, body);
+      li.appendChild(anchor);
       parentElem.appendChild(li);
+      return { li, text: `${title} ${description} ${file}`.toLowerCase() };
+    });
+
+    document.getElementById('search').addEventListener('input', (event) => {
+      const words = event.target.value.toLowerCase().split(/\s+/).filter(Boolean);
+      let visible = 0;
+      items.forEach(({ li, text }) => {
+        const match = words.every((word) => text.includes(word));
+        li.hidden = !match;
+        if (match) visible++;
+      });
+      document.getElementById('empty').hidden = visible > 0;
     });
   </script>
 </body>

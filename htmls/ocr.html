@@ -5,6 +5,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>画像から文字起こし隊</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <meta name="theme-color" content="#2f9e44" />
+  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+  <!-- テーマ(ダークモード)をちらつかせず適用するため、head で同期的に読み込む -->
+  <script src="./common.js"></script>
   <style>
     .input-container {
       width: 100%;
@@ -29,14 +35,43 @@
 
     .input-container {
       position: fixed;
+      top: 0;
+      left: 0;
+      padding: 8px 0 4px;
+      /* スクロールした結果が透けて重ならないようにする */
+      background-color: Canvas;
     }
 
     .status-container {
-      padding-top: 10px;
+      /* 上部に固定表示している入力欄と重ならないようにする */
+      padding-top: 100px;
     }
 
     .show-ocr-result-container {
       display: inline-block;
+    }
+
+    .lang-container {
+      margin-right: 20px;
+      text-align: right;
+      font-size: 14px;
+    }
+
+    .lang-container label {
+      margin-left: 8px;
+      white-space: nowrap;
+    }
+
+    .hint {
+      margin-right: 20px;
+      text-align: right;
+      font-size: 13px;
+      color: GrayText;
+    }
+
+    body.dragging {
+      outline: 4px dashed #6de689;
+      outline-offset: -4px;
     }
   </style>
 </head>
@@ -48,18 +83,58 @@
         <div id="uploader-elem" class="uploader-label">OCRしたい画像を選択！</div>
       </label>
       <input type="file" id="uploader" accept="image/*" multiple style="display:none;">
+      <div id="lang-container" class="lang-container">
+        <!-- jsで言語の選択肢を挿入 -->
+      </div>
+      <div class="hint">画像は Ctrl/⌘+V で貼り付け、またはドラッグ＆ドロップでもOK</div>
     </div>
     <div id="status-container" class="status-container"></div>
     <div id="show-ocr-result-container"></div>
   </div>
 
-  <script src="./common.js"></script>
   <script type="module">
     // API仕様 → https://github.com/naptha/tesseract.js/blob/master/docs/api.md
     import tesseractJs from 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.esm.min.js'
-    // 引数をいじったらワンチャン文字起こし精度改善の可能性あり
-    // 言語データの読み込みに時間がかかるため await せず、解析時に待つ(待っている間も画面操作を受け付ける)
-    const workerPromise = tesseractJs.createWorker(["jpn", "eng", "chi_tra"]);
+    /** 選べる言語(code は tesseract の言語コード)。選んだ分だけ言語データを読み込む */
+    const LANGUAGES = [
+      { code: "jpn", label: "日本語", defaultOn: true },
+      { code: "eng", label: "英語", defaultOn: true },
+      { code: "chi_tra", label: "中国語(繁体)", defaultOn: false },
+      { code: "chi_sim", label: "中国語(簡体)", defaultOn: false },
+      { code: "kor", label: "韓国語", defaultOn: false },
+    ];
+    const LANG_STORAGE_KEY = "OCR_LANGUAGES";
+
+    const loadSelectedLangs = () => {
+      try {
+        const saved = JSON.parse(window.localStorage.getItem(LANG_STORAGE_KEY));
+        const valid = Array.isArray(saved) ? saved.filter((code) => LANGUAGES.some((lang) => lang.code === code)) : [];
+        if (valid.length) return valid;
+      } catch (error) {
+        console.error(error);
+      }
+      return LANGUAGES.filter((lang) => lang.defaultOn).map((lang) => lang.code);
+    };
+
+    const getSelectedLangs = () =>
+      [...document.querySelectorAll("#lang-container input:checked")].map((input) => input.value);
+
+    /** 言語の組み合わせごとにワーカーを作り直す(同じ組み合わせなら使い回す) */
+    let currentWorker = { key: null, promise: null };
+    const getWorker = (langs) => {
+      const key = langs.join("+");
+      if (currentWorker.key !== key) {
+        const previous = currentWorker.promise;
+        previous?.then((worker) => worker.terminate()).catch(() => {});
+        // 引数をいじったらワンチャン文字起こし精度改善の可能性あり
+        currentWorker = { key, promise: tesseractJs.createWorker(langs) };
+        // 失敗したら次回作り直す
+        currentWorker.promise.catch(() => {
+          if (currentWorker.key === key) currentWorker = { key: null, promise: null };
+        });
+      }
+      return currentWorker.promise;
+    };
 
     const addCopyBtnElem = (lines, targetElem) => {
       const btnElem = document.createElement("button")
@@ -113,11 +188,19 @@
 
     }
 
-    const recognize = function (e) {
-      if (!e.target.files.length) {
+    let busy = false
+
+    const recognizeFiles = function (files) {
+      files = files.filter((file) => file.type.startsWith("image/"))
+      if (!files.length || busy) {
         return
       }
-      const files = Array.from(e.target.files)
+      const langs = getSelectedLangs()
+      if (!langs.length) {
+        window.MiniApps.showSnackBar("言語を1つ以上選んでください", 2000)
+        return
+      }
+      busy = true
       const uploaderElem = document.getElementById('uploader');
       uploaderElem.disabled = true
       const resultElem = document.getElementById("show-ocr-result-container")
@@ -139,8 +222,9 @@
         ulElem.appendChild(liElem)
       }
 
-      addLiElem("loading-worker", createMsgWithTs("OCRエンジンを準備中..."))
-      workerPromise.then((worker) => {
+      const langLabels = langs.map((code) => LANGUAGES.find((lang) => lang.code === code).label).join("・")
+      addLiElem("loading-worker", createMsgWithTs(`OCRエンジンを準備中...(${langLabels})`))
+      getWorker(langs).then((worker) => {
         addLiElem("loaded-worker", createMsgWithTs("OCRエンジンの準備完了"))
         return Promise.allSettled(files.map((file, index) => {
           // 無料だが、あまり精度が良くない
@@ -164,14 +248,62 @@
         console.error(error)
         addLiElem("loading-worker-failed", createMsgWithTs(`OCRエンジンの準備に失敗しました (${error?.message ?? error})`))
       }).finally(() => {
+        busy = false
         uploaderElem.disabled = false
         // 同じファイルを選び直しても change イベントが発火するようにする
         uploaderElem.value = ""
       })
     }
 
+    const initLanguages = () => {
+      const container = document.getElementById("lang-container")
+      const selected = loadSelectedLangs()
+      container.append("言語:")
+      LANGUAGES.forEach(({ code, label }) => {
+        const labelElem = document.createElement("label")
+        const input = document.createElement("input")
+        input.type = "checkbox"
+        input.value = code
+        input.checked = selected.includes(code)
+        input.addEventListener("change", () => {
+          window.localStorage.setItem(LANG_STORAGE_KEY, JSON.stringify(getSelectedLangs()))
+        })
+        labelElem.append(input, label)
+        container.appendChild(labelElem)
+      })
+    }
+
     const init = () => {
-      document.getElementById('uploader').addEventListener('change', recognize);
+      initLanguages()
+      document.getElementById('uploader').addEventListener('change', (e) => recognizeFiles(Array.from(e.target.files)));
+
+      // クリップボードの画像を貼り付けて解析する(スクリーンショットをそのまま貼れる)
+      document.addEventListener("paste", (e) => {
+        const files = Array.from(e.clipboardData?.files ?? [])
+        if (files.length) {
+          e.preventDefault()
+          recognizeFiles(files)
+        }
+      })
+
+      // ドラッグ＆ドロップ
+      let dragDepth = 0
+      document.addEventListener("dragenter", (e) => {
+        if (!e.dataTransfer?.types.includes("Files")) return
+        dragDepth++
+        document.body.classList.add("dragging")
+      })
+      document.addEventListener("dragleave", () => {
+        dragDepth = Math.max(0, dragDepth - 1)
+        if (dragDepth === 0) document.body.classList.remove("dragging")
+      })
+      document.addEventListener("dragover", (e) => e.preventDefault())
+      document.addEventListener("drop", (e) => {
+        e.preventDefault()
+        dragDepth = 0
+        document.body.classList.remove("dragging")
+        recognizeFiles(Array.from(e.dataTransfer?.files ?? []))
+      })
     }
 
     init()
