@@ -27,10 +27,11 @@
   import QrScanner from 'https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.min.js'
   // 関数を跨いで参照したい変数群
   const VALUES = {
-    stream: null,
     qrScanner: null,
-    videoDevices: [],
-    startingCamera: false,
+    /** 起動・停止処理中は true(連打対策) */
+    busy: false,
+    /** 直前に表示した読み取り結果(同じQRを写し続けたときに再描画しないため) */
+    lastData: null,
     buttonElem: null,
     videoElem: null,
     resultElem: null,
@@ -49,75 +50,96 @@
     });
   };
 
+  const updateButton = () => {
+    VALUES.buttonElem.textContent = VALUES.qrScanner ? "カメラを停止する" : "カメラを起動する";
+    VALUES.buttonElem.disabled = VALUES.busy;
+  };
+
   const handleCamera = async () => {
-    if (VALUES.startingCamera) {
-      VALUES.startingCamera = false
-      stopCamera()
-      VALUES.buttonElem.textContent = "カメラを起動する";
-    } else {
-      VALUES.startingCamera = true
-      await startCamera()
-      VALUES.buttonElem.textContent = "カメラを停止する";
+    if (VALUES.busy) {
+      return;
+    }
+    VALUES.busy = true;
+    updateButton();
+    try {
+      if (VALUES.qrScanner) {
+        stopCamera();
+      } else {
+        await startCamera();
+      }
+    } catch (error) {
+      console.error(error);
+      stopCamera();
+      window.alert(`カメラを起動できませんでした: ${error?.message ?? error}`);
+    } finally {
+      VALUES.busy = false;
+      updateButton();
+    }
+  }
+
+  /** 前回の読み取り結果を消す(先頭の説明文は残す) */
+  const clearResult = () => {
+    while (VALUES.resultElem.children.length > 1) {
+      VALUES.resultElem.lastElementChild.remove();
+    }
+  }
+
+  const showResult = (data) => {
+    try {
+      clearResult()
+      console.debug("decoded qr code:", data);
+      const url = new URL(data);
+      console.debug(`URL: ${url.href}`);
+
+      const containerElem = document.createElement("div")
+
+      const anchorElem = document.createElement("a")
+      anchorElem.className = "text-base text-blue-500"
+      anchorElem.href = url.href
+      anchorElem.textContent = url.href
+      anchorElem.target = "_blank"
+
+      const copyMacroElem = document.createElement("button")
+      copyMacroElem.className = "ml-2 px-2 text-base bg-green-400 text-white rounded-md hover:opacity-60 active:border-green-600 active:border-2 active:scale-105 cursor-pointer"
+      copyMacroElem.textContent = "URLをコピーする！"
+      copyMacroElem.addEventListener("click", () => {
+        window.MiniApps.copyText(url.href, "URLをコピーしました")
+      })
+
+      containerElem.appendChild(anchorElem)
+      containerElem.appendChild(copyMacroElem)
+      VALUES.resultElem.appendChild(containerElem)
+    } catch (e) {
+      console.error(e);
+      const msgElem = document.createElement("p")
+      msgElem.className = "text-base text-red-500 my-4"
+      if (e.message === "Failed to construct 'URL': Invalid URL") {
+        msgElem.textContent = "URLではないQRコードが読み取られました";
+      } else {
+        msgElem.textContent = "QRコードの読み取り処理に失敗しました";
+      }
+      VALUES.resultElem.appendChild(msgElem)
     }
   }
 
   const startCamera = async () => {
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    VALUES.videoDevices = devices.filter(
-      (device) => device.kind === "videoinput"
-    );
-    VALUES.stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        // カメラの選択
-        deviceId: VALUES.videoDevices[0].deviceId,
-      },
-    });
+    // カメラの起動(getUserMedia)・video への映像設定は QrScanner が内部で行う
     VALUES.qrScanner = new QrScanner(
       VALUES.videoElem,
-      async (result) => {
-        // デコード成功時のコールバック
-        try {
-          if (VALUES.resultElem.children.length > 1) {
-            VALUES.resultElem.removeChild([...VALUES.resultElem.children].reverse()[0])
-          }
-          console.debug("decoded qr code:", result);
-          const url = new URL(result.data);
-          console.debug(`URL: ${url.href}`);
-
-          const containerElem = document.createElement("div")
-
-          const anchorElem = document.createElement("a")
-          anchorElem.className = "text-base text-blue-500"
-          anchorElem.href = url.href
-          anchorElem.textContent = url.href
-          anchorElem.target = "_blank"
-
-          const copyMacroElem = document.createElement("button")
-          copyMacroElem.className = "ml-2 px-2 text-base bg-green-400 text-white rounded-md hover:opacity-60 active:border-green-600 active:border-2 active:scale-105 cursor-pointer"
-          copyMacroElem.textContent = "URLをコピーする！"
-          copyMacroElem.addEventListener("click", () => {
-            window.MiniApps.copyText(url.href, "URLをコピーしました")
-          })
-
-          containerElem.appendChild(anchorElem)
-          containerElem.appendChild(copyMacroElem)
-          VALUES.resultElem.appendChild(containerElem)
-        } catch (e) {
-          console.error(e);
-          const msgElem = document.createElement("p")
-          msgElem.className = "text-base text-red-500 my-4"
-          if (e.message === "Failed to construct 'URL': Invalid URL") {
-            msgElem.textContent = "URLではないQRコードが読み取られました";
-          } else {
-            msgElem.textContent = "QRコードの読み取り処理に失敗しました";
-          }
-          VALUES.resultElem.appendChild(msgElem)
+      (result) => {
+        // デコード成功時のコールバック。QRが写っている間は毎フレーム呼ばれる
+        if (result.data === VALUES.lastData) {
+          return;
         }
+        VALUES.lastData = result.data;
+        showResult(result.data);
       },
       {
+        // スマホでは背面カメラを優先する
+        preferredCamera: "environment",
         onDecodeError: (error) => {
           // デコード失敗時のエラーコールバック
-          if (error === "No QR code found") {
+          if (error === QrScanner.NO_QR_CODE_FOUND || error === "No QR code found") {
             // カメラにQRコードが写っていない場合は常にこのエラーが発生するため抑制
             return;
           }
@@ -125,12 +147,7 @@
         },
       }
     );
-
-    VALUES.videoElem.srcObject = VALUES.stream;
-    VALUES.videoElem.onloadedmetadata = () => {
-      VALUES.videoElem.play();
-    };
-    VALUES.qrScanner.start();
+    await VALUES.qrScanner.start();
   }
 
   const stopCamera = () => {
@@ -139,15 +156,8 @@
       VALUES.qrScanner.destroy();
       VALUES.qrScanner = null
     }
-    if (VALUES.stream) {
-      VALUES.stream.getVideoTracks().forEach((track) => {
-        track.stop();
-      });
-      VALUES.stream = null
-    }
-    if (VALUES.resultElem.children.length > 1) {
-      VALUES.resultElem.removeChild([...VALUES.resultElem.children].reverse()[0])
-    }
+    VALUES.lastData = null
+    clearResult()
   }
 
 
