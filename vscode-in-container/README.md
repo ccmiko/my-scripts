@@ -27,22 +27,35 @@ docker build --platform linux/amd64 -t my-vscode-on-linux:1.0 .
 docker build -t my-vscode:1.0 .
 
 # インタラクティブターミナル起動
-docker run --name my-vscode --rm -it my-vscode:1.0
+docker run --name my-vscode --rm -it \
+  -v my-vscode-auth:/home/ubuntu/.vscode \
+  -v my-vscode-workspace:/home/ubuntu/workspace \
+  my-vscode:1.0
 # コンテナ起動
-docker run --name my-vscode my-vscode:1.0
+docker run --name my-vscode \
+  -v my-vscode-auth:/home/ubuntu/.vscode \
+  -v my-vscode-workspace:/home/ubuntu/workspace \
+  my-vscode:1.0
 ```
+
+- `/home/ubuntu/.vscode`: `code tunnel` の認証情報。マウントしておけば、コンテナを作り直しても再認証が不要
+- `/home/ubuntu/workspace`: 作業データ
+- コンテナは root ではなく `ubuntu` ユーザー(UID 1000)で動く。ホストのディレクトリをバインドマウントする場合は、所有者を UID 1000 に合わせること
+- コンテナ内で起動したアプリ(3000番ポート等)には、VS Code のポートフォワード機能(PORTS タブ)でアクセスする
 
 ### 起動後にどう使う？
 
 1. とりあえず、初回はコンテナのログ見て `code tunnel` の認証作業を手動で行う
    1. 必要に応じてコンテナに潜ってCUIの操作を行う
-   2. なんか良いやり方ある気がするけど、そこまで調べてない
+   2. 認証情報は `/home/ubuntu/.vscode` に保存されるので、ボリュームをマウントしておけば2回目以降は不要
 2. ログ出力されるリンクを開く
 3. 自分だけのvscodeが起動する！
 
 ### エクスポート (リポジトリを介さない他所への配布用)
 
+```shell
 docker save -o $HOME/Desktop/my-vscode.tar my-vscode-on-linux:1.0
+```
 
 ### 整形
 

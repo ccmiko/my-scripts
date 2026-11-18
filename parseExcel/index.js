@@ -3,7 +3,7 @@ const path = require("path");
 
 /** 対象ファイルの名称 */
 const TARGET_PATH = path.join(__dirname, "./original.xlsx");
-/** 対象のシート名 */
+/** 対象のシートの位置(0始まり) */
 const TARGET_SHEET_POSITION = 0;
 /** 1行目がヘッダー行のデータか？ */
 const HAS_HEADER = true;
@@ -26,6 +26,9 @@ function Excel() {
     },
     setSheet: (position = 0) => {
       _currentSheet = _worksheets[position];
+      if (!_currentSheet) {
+        throw new Error(`${position} 番目のシートが存在しません (シート数: ${_worksheets.length})`);
+      }
       if (_hasHeaders) {
         _currentHeaders = _currentSheet.getRow(1).values;
       }
@@ -49,7 +52,11 @@ function Excel() {
         const row = _currentSheet.getRow(counter).values;
         if (_hasHeaders) {
           const _obj = {};
+          // ExcelJS の values は1始まりで index 0 は常に空のため、空のヘッダーは除外する
           _currentHeaders.forEach((header, index) => {
+            if (header === undefined || header === null || header === "") {
+              return;
+            }
             _obj[header] = row[index];
           });
           yield _obj;
@@ -65,10 +72,13 @@ function Excel() {
 async function main() {
   const excel = new Excel();
   (await excel.parse(TARGET_PATH, HAS_HEADER)).setSheet(TARGET_SHEET_POSITION);
-  for await (const data of excel.getRows()) {
+  for (const data of excel.getRows()) {
     // dataの中に1行1行取れるので好きに加工する
     console.info(data);
   }
 }
 
-main();
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

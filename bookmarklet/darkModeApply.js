@@ -6,7 +6,7 @@
  */
 
 function main() {
-  styles = `
+  const styles = `
   * {
   background-color: #202124 !important;
   color: #A9ACAF !important;
@@ -25,13 +25,11 @@ function main() {
     fill: #f1b963 !important;
   }
   `;
-  styleSheet = document.createElement("style");
-  id = "AAAAAAAAAAA";
+  const styleSheet = document.createElement("style");
+  const id = "AAAAAAAAAAA";
   styleSheet.id = id;
   styleSheet.textContent = styles;
   document.getElementById(id)?.remove();
   document.head.appendChild(styleSheet);
 }
 main();
-
-javascript: function main(){styles="\n  * {\n  background-color: #202124%20!important;\n%20%20color:%20#A9ACAF%20!important;\n%20%20}\n%20%20a,%20a%20*%20{\n%20%20%20%20color:%20#00bbf0%20!important;\n%20%20%20%20text-decoration:underline%20%20!important;\n%20%20}\n%20%20button,%20button%20*%20{\n%20%20%20%20background-color:%20#cdcdcd%20!important;\n%20%20%20%20color:#1b1b1b%20!important;\n%20%20%20%20text-decoration:underline%20%20!important;\n%20%20%20%20border:%201px%20solid%20!important;\n%20%20}\n%20%20svg%20{\n%20%20%20%20fill:%20#f1b963%20!important;\n%20%20}\n%20%20";styleSheet=document.createElement("style");id="AAAAAAAAAAA";styleSheet.id=id;styleSheet.textContent=styles;document.getElementById(id)?.remove();document.head.appendChild(styleSheet)}main();
