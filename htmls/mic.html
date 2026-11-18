@@ -9,79 +9,121 @@
 
 <body>
   <div>
-     <h1>遅延再生くん</h1>
-    <!-- <audio id="audio" controls></audio> -->
+    <h1>遅延再生くん</h1>
     <button id="record-button" type="button">開始</button>
-    <button id="stop-button" type="button">停止</button>
+    <button id="stop-button" type="button" disabled>停止</button>
+    <p id="status">停止中</p>
+
+    <div>
+      <label>
+        遅延時間: <span id="delay-value">3.0</span>秒
+        <input id="delay-input" type="range" min="0" max="10" step="0.1" value="3">
+      </label>
+    </div>
+    <div>
+      <label>
+        音量: <span id="volume-value">100</span>%
+        <input id="volume-input" type="range" min="0" max="200" step="1" value="100">
+      </label>
+    </div>
 
     メモ
     <div>
       TODO
-音量調整機能
-遅延時間調整機能
-https://medium.com/hackernoon/creative-coding-using-the-microphone-to-make-sound-reactive-art-part1-164fd3d972f3
-https://www.google.com/search?q=how+to+draw+reactive+sound+wave+at+microphone&sca_esv=c4d3b1b5b2456fed&ei=F_t4aLftM8aOvr0Poq-HuQ8&ved=0ahUKEwj31IKrgMSOAxVGh68BHaLXIfcQ4dUDCBA&uact=5&oq=how+to+draw+reactive+sound+wave+at+microphone&gs_lp=Egxnd3Mtd2l6LXNlcnAaAhgCIi1ob3cgdG8gZHJhdyByZWFjdGl2ZSBzb3VuZCB3YXZlIGF0IG1pY3JvcGhvbmUyBRAAGO8FMgUQABjvBTIFEAAY7wUyCBAAGIAEGKIEMgUQABjvBUjcaFD-B1jSZ3ACeAGQAQCYAa8BoAHaFaoBBDIuMjG4AQPIAQD4AQGYAhSgAqYRwgIKEAAYsAMY1gQYR8ICCBAAGKIEGIkFwgIFECEYoAHCAgoQIRgVGPgFGIsDwgIEECEYFZgDAIgGAZAGApIHBDQuMTagB9A1sgcEMi4xNrgHoRHCBwU1LjcuOMgHLw&sclient=gws-wiz-serp
+      マイク入力の波形を描画する
+      https://medium.com/hackernoon/creative-coding-using-the-microphone-to-make-sound-reactive-art-part1-164fd3d972f3
     </div>
   </div>
 </body>
 
-</html>
-
 <script type="module">
-  document.addEventListener("DOMContentLoaded", (event) => {
-    // const audioElem = document.getElementById("audio")
-    const recordBtnElm = document.getElementById("record-button")
-    const stopBtnElm = document.getElementById("stop-button")
+  const MAX_DELAY_SECONDS = 10;
 
+  const elems = {
+    record: document.getElementById("record-button"),
+    stop: document.getElementById("stop-button"),
+    status: document.getElementById("status"),
+    delayInput: document.getElementById("delay-input"),
+    delayValue: document.getElementById("delay-value"),
+    volumeInput: document.getElementById("volume-input"),
+    volumeValue: document.getElementById("volume-value"),
+  };
 
+  /** 再生中のみ値が入る */
+  const audio = {
+    stream: null,
+    ctx: null,
+    delayNode: null,
+    gainNode: null,
+  };
 
-    recordBtnElm.addEventListener("click", (e) => {
-      if (!window.localStream) {
-        navigator.mediaDevices
-          .getUserMedia({ video: false, audio: true })
-          .then((stream) => {
-            const audioCtx = new AudioContext();
-            const source = audioCtx.createMediaStreamSource(stream);
+  const isPlaying = () => audio.ctx !== null;
 
-            // 遅延再生
-            const maxDelayTime = parseFloat(10)
-            const delayTime = parseFloat(3)
-            const delayNode = audioCtx.createDelay(maxDelayTime);
-            delayNode.delayTime.value = parseFloat(delayTime)
-            source.connect(delayNode);
-            delayNode.connect(audioCtx.destination);
+  const updateButtons = () => {
+    elems.record.disabled = isPlaying();
+    elems.stop.disabled = !isPlaying();
+    elems.status.textContent = isPlaying() ? "再生中" : "停止中";
+  };
 
-            // ゲイン音量調整（試した感じ、効いている気がしない・・・）
-            // const gainNode = audioCtx.createGain();
-            // gainNode.gain.value = 0.5;
-            // source.connect(gainNode);
-            // delayNode.connect(gainNode);
-            // gainNode.connect(audioCtx.destination);
+  const start = async () => {
+    if (isPlaying()) {
+      return;
+    }
+    elems.record.disabled = true;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+      const ctx = new AudioContext();
+      const source = ctx.createMediaStreamSource(stream);
 
+      // マイク → 遅延 → 音量 → スピーカー の順に直列で接続する
+      // (並列に繋ぐと元の経路の音がそのまま出てしまい、音量調整が効かない)
+      const delayNode = ctx.createDelay(MAX_DELAY_SECONDS);
+      delayNode.delayTime.value = Number(elems.delayInput.value);
+      const gainNode = ctx.createGain();
+      gainNode.gain.value = Number(elems.volumeInput.value) / 100;
 
-            window.localStream = stream;
-            // audioタグに突っ込んでUI操作する場合
-            // audioElem.srcObject = stream;
-            // audioElem.autoplay = true;
-          })
-          .catch((err) => {
-            console.error(`you got an error: ${err}`);
-          });
-      }
-    })
+      source.connect(delayNode);
+      delayNode.connect(gainNode);
+      gainNode.connect(ctx.destination);
 
-    stopBtnElm.addEventListener("click", (e) => {
-      if (!window.localStream) {
-        return
-      }
-      window.localStream.getTracks()
-        .forEach((track) => {
-          track.stop();
-        });
-      window.localStream = undefined;
-      // audioElem.srcObject = undefined;
-      // audioElem.autoplay = false;
-    })
+      Object.assign(audio, { stream, ctx, delayNode, gainNode });
+    } catch (error) {
+      console.error(error);
+      window.alert(`マイクを開始できませんでした: ${error.message}`);
+    } finally {
+      updateButtons();
+    }
+  };
 
+  const stop = async () => {
+    if (!isPlaying()) {
+      return;
+    }
+    audio.stream.getTracks().forEach((track) => track.stop());
+    // AudioContext を閉じないと開始のたびに増え続ける
+    await audio.ctx.close();
+    Object.assign(audio, { stream: null, ctx: null, delayNode: null, gainNode: null });
+    updateButtons();
+  };
+
+  elems.delayInput.addEventListener("input", () => {
+    const value = Number(elems.delayInput.value);
+    elems.delayValue.textContent = value.toFixed(1);
+    if (audio.delayNode) {
+      audio.delayNode.delayTime.setValueAtTime(value, audio.ctx.currentTime);
+    }
   });
+
+  elems.volumeInput.addEventListener("input", () => {
+    const value = Number(elems.volumeInput.value);
+    elems.volumeValue.textContent = String(value);
+    if (audio.gainNode) {
+      audio.gainNode.gain.setValueAtTime(value / 100, audio.ctx.currentTime);
+    }
+  });
+
+  elems.record.addEventListener("click", start);
+  elems.stop.addEventListener("click", stop);
 </script>
+
+</html>
