@@ -7,6 +7,7 @@
  * - アカウント情報の実データ(account.json / account.enc.json)は、置いてあっても絶対に公開しない
  * - apps.js で localOnly: true のアプリ(と relatedFiles)は公開せず、出力の apps.js からも除く
  * - `@local-only` を含む行は削除する
+ * - 各 HTML に CSP(Content-Security-Policy)の meta を入れる。インラインスクリプトはハッシュで許可する
  * - sw.js の CACHE_VERSION を出力内容のハッシュに置き換え、更新時に古いキャッシュが入れ替わるようにする
  * - 出力に除外したファイルや、localOnly のアプリへの参照が残っていたら失敗する(誤って公開しないための確認)
  */
@@ -57,6 +58,41 @@ const copyDir = (src, dest) => {
   }
 };
 
+/**
+ * CSP。外部から読み込めるのは自サイトと jsDelivr(バージョン固定のライブラリ)だけにする。
+ * - インラインスクリプトは 'unsafe-inline' を使わず、ページごとに内容のハッシュで許可する
+ * - 'wasm-unsafe-eval': OCR(tesseract.js)の WebAssembly 用
+ * - blob: のワーカー: tesseract.js / qr-scanner がワーカーを blob URL で作るため
+ * - スタイルはページ内の style 属性・<style> を多用しているため 'unsafe-inline' を許可する
+ */
+const CDN = "https://cdn.jsdelivr.net";
+const buildCsp = (scriptHashes) =>
+  [
+    "default-src 'self'",
+    `script-src 'self' ${CDN} 'wasm-unsafe-eval' ${scriptHashes.map((hash) => `'${hash}'`).join(" ")}`,
+    `worker-src 'self' blob: ${CDN}`,
+    `connect-src 'self' ${CDN} blob: data:`,
+    "img-src 'self' blob: data:",
+    "media-src 'self' blob:",
+    "style-src 'self' 'unsafe-inline'",
+    "font-src 'self'",
+    "manifest-src 'self'",
+    "object-src 'none'",
+    "base-uri 'none'",
+    "form-action 'none'",
+  ].join("; ");
+
+/** src の無い <script> の中身(インラインスクリプト)のハッシュを集め、CSP の meta を <head> の先頭に入れる */
+const addCsp = (html, file) => {
+  const hashes = [...html.matchAll(/<script(?![^>]*\ssrc=)[^>]*>([\s\S]*?)<\/script>/g)].map(
+    ([, content]) => `sha256-${crypto.createHash("sha256").update(content, "utf-8").digest("base64")}`,
+  );
+  const meta = `<meta http-equiv="Content-Security-Policy" content="${buildCsp([...new Set(hashes)])}" />`;
+  const charset = /<meta charset="UTF-8" \/>\n/i;
+  if (!charset.test(html)) throw new Error(`${file}: <meta charset="UTF-8" /> が見つからず CSP を入れられません`);
+  return html.replace(charset, (match) => `${match}    ${meta}\n`);
+};
+
 const listFiles = (dir) =>
   fs
     .readdirSync(dir, { withFileTypes: true })
@@ -95,6 +131,11 @@ fs.writeFileSync(
     2,
   )};\n`,
 );
+
+// 各ページに CSP を入れる(apps.js の書き換え等が終わった最終形に対して計算する)
+for (const file of listFiles(OUT_DIR).filter((file) => file.endsWith(".html"))) {
+  fs.writeFileSync(file, addCsp(fs.readFileSync(file, "utf-8"), path.relative(OUT_DIR, file)));
+}
 
 // Service Worker のキャッシュ版を、出力内容のハッシュにする
 const swPath = path.join(OUT_DIR, "sw.js");
