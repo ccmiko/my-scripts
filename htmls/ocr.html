@@ -56,7 +56,7 @@
   <script src="./common.js"></script>
   <script type="module">
     // API仕様 → https://github.com/naptha/tesseract.js/blob/master/docs/api.md
-    import tesseractJs from 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.esm.min.js'
+    import tesseractJs from 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.esm.min.js'
     // 引数をいじったらワンチャン文字起こし精度改善の可能性あり
     // 言語データの読み込みに時間がかかるため await せず、解析時に待つ(待っている間も画面操作を受け付ける)
     const workerPromise = tesseractJs.createWorker(["jpn", "eng", "chi_tra"]);
