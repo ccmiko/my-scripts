@@ -35,7 +35,10 @@
     const theme = preference === "auto" ? (darkQuery.matches ? "dark" : "light") : preference;
     document.documentElement.dataset.theme = theme;
     if (themeButton) {
-      themeButton.textContent = THEMES[preference].icon;
+      // ページ内の決まった位置(slot)に置く場合はアイコンだけ、ページ下部に置く場合は文字も出す
+      themeButton.textContent = themeButton.classList.contains("mini-apps-theme-button--inline")
+        ? THEMES[preference].icon
+        : `${THEMES[preference].icon} テーマ: ${THEMES[preference].label}`;
       themeButton.title = `テーマ: ${THEMES[preference].label}(クリックで切り替え)`;
       themeButton.setAttribute("aria-label", themeButton.title);
     }
@@ -55,15 +58,15 @@
   themeStyle.textContent = `
     :root[data-theme="light"] { color-scheme: light; }
     :root[data-theme="dark"] { color-scheme: dark; }
+    .mini-apps-theme-footer { padding: 4px 16px calc(20px + env(safe-area-inset-bottom)); text-align: center; }
     .mini-apps-theme-button {
-      position: fixed; left: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 1000;
-      width: 36px; height: 36px; padding: 0; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center; font-size: 18px; line-height: 1;
-      border: 1px solid rgba(128, 128, 128, 0.4); background: Canvas; color: CanvasText;
-      opacity: 0.7; cursor: pointer; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px; line-height: 1;
+      padding: 6px 14px; border-radius: 999px; font: 13px/1 system-ui, -apple-system, "Hiragino Sans", sans-serif;
+      border: 1px solid rgba(128, 128, 128, 0.4); background: transparent; color: inherit;
+      opacity: 0.75; cursor: pointer;
     }
     .mini-apps-theme-button:hover, .mini-apps-theme-button:focus-visible { opacity: 1; }
-    .mini-apps-theme-button--inline { position: static; width: 30px; height: 30px; font-size: 16px; box-shadow: none; }
+    .mini-apps-theme-button--inline { width: 30px; height: 30px; padding: 0; font-size: 16px; border-radius: 50%; }
     .mini-apps-snackbar {
       position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); z-index: 1001;
       max-width: min(560px, calc(100vw - 32px)); padding: 10px 18px; border-radius: 10px;
@@ -96,13 +99,17 @@
       setTheme(next);
       showSnackBar(`テーマ: ${THEMES[next].label}`);
     });
-    // ページに [data-theme-button-slot] があればそこに置き、無ければ左下に浮かせて表示する
+    // ページに [data-theme-button-slot] があればそこに置き、無ければページの一番下に置く
+    // (画面に固定して浮かせると、スマホや小さなウィンドウで内容に重なって邪魔になるため)
     const slot = document.querySelector("[data-theme-button-slot]");
     if (slot) {
       themeButton.classList.add("mini-apps-theme-button--inline");
       slot.appendChild(themeButton);
     } else {
-      document.body.appendChild(themeButton);
+      const footer = document.createElement("div");
+      footer.className = "mini-apps-theme-footer";
+      footer.appendChild(themeButton);
+      document.body.appendChild(footer);
     }
     applyTheme();
   };

@@ -199,3 +199,49 @@ td {
   white-space: pre-wrap;
   word-break: break-all;
 }
+
+/* ページ下部に置く使い方などの説明(操作する部分を上に置き、説明は最後に回す) */
+.usage {
+  margin: 4px 4px 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.usage p,
+.usage ul {
+  margin: 4px 0;
+}
+
+/* スマホ・小さなウィンドウ(タブの最小サイズ)では余白を詰めて、操作部分が最初の画面に収まるようにする */
+@media (max-width: 600px), (max-height: 560px) {
+  .wrapper {
+    padding: 10px;
+  }
+
+  section {
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    border-radius: 10px;
+  }
+
+  h2 {
+    font-size: 16px;
+    margin-bottom: 6px;
+  }
+
+  label {
+    margin: 6px 0;
+  }
+
+  textarea {
+    min-height: 5em;
+  }
+}
+
+/* タッチ操作の端末では、ボタンを押しやすい大きさにする */
+@media (pointer: coarse) {
+  button,
+  .button {
+    min-height: 40px;
+  }
+}
