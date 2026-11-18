@@ -22,6 +22,7 @@
 
 </html>
 
+<script src="./common.js"></script>
 <script type="module">
   import QrScanner from 'https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.min.js'
   // 関数を跨いで参照したい変数群
@@ -33,29 +34,6 @@
     buttonElem: null,
     videoElem: null,
     resultElem: null,
-  }
-
-  const randStr = () => {
-    const digits = 10;
-    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    let str = "";
-    for (let i = 0; i < digits; i++) {
-      str += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return str;
-  }
-
-  const showSnackBar = (msg) => {
-    const uniqueId = randStr();
-    const style = "z-index: 1000; position: fixed; top: 0; left: 10px; " +
-      "width: fit-content; margin: 10px auto; padding: 6px; " +
-      "background-color: #E7F1ED; border-radius: 10px;";
-    const input = `<div id="${uniqueId}" style="${style}" >${msg}</div>`;
-    const body = document.getElementsByTagName("body")[0];
-    body.insertAdjacentHTML("afterend", input);
-    setTimeout(() => {
-      document.getElementById(uniqueId).remove();
-    }, 500);
   }
 
   const init = async () => {
@@ -118,8 +96,7 @@
           copyMacroElem.className = "ml-2 px-2 text-base bg-green-400 text-white rounded-md hover:opacity-60 active:border-green-600 active:border-2 active:scale-105 cursor-pointer"
           copyMacroElem.textContent = "URLをコピーする！"
           copyMacroElem.addEventListener("click", () => {
-            navigator.clipboard.writeText(url.href)
-            showSnackBar("URLをコピーしました")
+            window.MiniApps.copyText(url.href, "URLをコピーしました")
           })
 
           containerElem.appendChild(anchorElem)

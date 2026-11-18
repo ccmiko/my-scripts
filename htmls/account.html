@@ -28,24 +28,13 @@
   </body>
 </html>
 
+<script src="./common.js"></script>
 <script type="module">
-  const showCopiedMessage = () => {
-    const elem = document.createElement("div");
-    elem.style.cssText =
-      "position: fixed; top: 0; margin: 10px auto; width: 80%; max-width: 1200px; z-index: 999; background-color: #E7F1ED";
-    elem.textContent = "コピーしました！";
-    document.body.appendChild(elem);
-    setTimeout(() => elem.remove(), 500);
-  };
-
   const createCopyButton = (value) => {
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = "コピー";
-    button.addEventListener("click", () => {
-      navigator.clipboard.writeText(value);
-      showCopiedMessage();
-    });
+    button.addEventListener("click", () => window.MiniApps.copyText(value));
     return button;
   };
 

@@ -20,6 +20,7 @@
   </div>
 </body>
 
+<script src="./common.js"></script>
 <script type="module">
   // API仕様 → https://github.com/naptha/tesseract.js/blob/master/docs/api.md
   import tesseractJs from 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.esm.min.js'
@@ -34,7 +35,7 @@
     btnElem.textContent = "コピーする"
     btnElem.addEventListener("click", () => {
       const txt = lines.map(line => line.text).join("\n")
-      navigator.clipboard.writeText(txt);
+      window.MiniApps.copyText(txt);
     })
     targetElem.appendChild(btnElem)
   }
@@ -45,7 +46,7 @@
     btnElem.textContent = "コピーする(空白削除)"
     btnElem.addEventListener("click", () => {
       const txt = lines.map(line => line.text.replace(/\s+/g, "")).join("\n")
-      navigator.clipboard.writeText(txt);
+      window.MiniApps.copyText(txt);
     })
     targetElem.appendChild(btnElem)
   }
