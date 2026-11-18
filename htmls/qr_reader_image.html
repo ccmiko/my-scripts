@@ -65,27 +65,6 @@
     return wrapper
   }
 
-  const createUrlResultElem = (url) => {
-    const containerElem = document.createElement("div")
-
-    const anchorElem = document.createElement("a")
-    anchorElem.className = "text-base text-blue-500"
-    anchorElem.href = url.href
-    anchorElem.textContent = url.href
-    anchorElem.target = "_blank"
-
-    const copyMacroElem = document.createElement("button")
-    copyMacroElem.className = "ml-2 px-2 text-base bg-green-400 text-white rounded-md hover:opacity-60 active:border-green-600 active:border-2 active:scale-105 cursor-pointer"
-    copyMacroElem.textContent = "URLをコピーする！"
-    copyMacroElem.addEventListener("click", () => {
-      window.MiniApps.copyText(url.href, "URLをコピーしました")
-    })
-
-    containerElem.appendChild(anchorElem)
-    containerElem.appendChild(copyMacroElem)
-    return containerElem
-  }
-
   const handleSelectImage = async (e) => {
     const uploaderElem = e.target
     if (!uploaderElem.files.length) {
@@ -115,12 +94,7 @@
     }
 
     if (data !== null) {
-      try {
-        containerElem.appendChild(createUrlResultElem(new URL(data)))
-      } catch (error) {
-        console.error(error);
-        containerElem.appendChild(createErrorElem("URLではないQRコードが読み取られました"))
-      }
+      containerElem.appendChild(window.MiniApps.createQrResultElem(data))
     }
     containerElem.appendChild(createImagePreview(file))
   }

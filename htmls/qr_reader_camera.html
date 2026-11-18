@@ -14,7 +14,7 @@
     <button id="button"
       class="px-4 py-2.5 text-white bg-blue-500 rounded-md hover:opacity-80 active:border-blue-600 active:border-2 active:scale-105 cursor-pointer">カメラを起動する</button>
     <div id="result" class="my-6">
-      <p class="text-base text-gray-500">これはQRコードリーダです。ここに読み取り結果が出力されます。</p>
+      <p class="text-base text-gray-500">これはQRコードリーダです。ここに読み取り結果(URLまたはテキスト)が出力されます。</p>
     </div>
     <video id="video" class="max-w-[800px] max-h-[800px] bg-black"></video>
   </div>
@@ -85,41 +85,9 @@
   }
 
   const showResult = (data) => {
-    try {
-      clearResult()
-      console.debug("decoded qr code:", data);
-      const url = new URL(data);
-      console.debug(`URL: ${url.href}`);
-
-      const containerElem = document.createElement("div")
-
-      const anchorElem = document.createElement("a")
-      anchorElem.className = "text-base text-blue-500"
-      anchorElem.href = url.href
-      anchorElem.textContent = url.href
-      anchorElem.target = "_blank"
-
-      const copyMacroElem = document.createElement("button")
-      copyMacroElem.className = "ml-2 px-2 text-base bg-green-400 text-white rounded-md hover:opacity-60 active:border-green-600 active:border-2 active:scale-105 cursor-pointer"
-      copyMacroElem.textContent = "URLをコピーする！"
-      copyMacroElem.addEventListener("click", () => {
-        window.MiniApps.copyText(url.href, "URLをコピーしました")
-      })
-
-      containerElem.appendChild(anchorElem)
-      containerElem.appendChild(copyMacroElem)
-      VALUES.resultElem.appendChild(containerElem)
-    } catch (e) {
-      console.error(e);
-      const msgElem = document.createElement("p")
-      msgElem.className = "text-base text-red-500 my-4"
-      if (e.message === "Failed to construct 'URL': Invalid URL") {
-        msgElem.textContent = "URLではないQRコードが読み取られました";
-      } else {
-        msgElem.textContent = "QRコードの読み取り処理に失敗しました";
-      }
-      VALUES.resultElem.appendChild(msgElem)
-    }
+    clearResult()
+    console.debug("decoded qr code:", data);
+    VALUES.resultElem.appendChild(window.MiniApps.createQrResultElem(data))
   }
 
   const startCamera = async () => {
