@@ -8,7 +8,7 @@
  * - apps.js で localOnly: true のアプリ(と relatedFiles)は公開せず、出力の apps.js からも除く
  * - `@local-only` を含む行は削除する
  * - sw.js の CACHE_VERSION を出力内容のハッシュに置き換え、更新時に古いキャッシュが入れ替わるようにする
- * - 出力に除外したファイルや、それを参照する記述が残っていたら失敗する(誤って公開しないための確認)
+ * - 出力に除外したファイルや、localOnly のアプリへの参照が残っていたら失敗する(誤って公開しないための確認)
  */
 const crypto = require("crypto");
 const fs = require("fs");
@@ -28,10 +28,10 @@ const TEXT_EXTENSIONS = new Set([".html", ".js", ".css", ".webmanifest", ".json"
 const apps = loadApps();
 const localOnlyApps = apps.filter((app) => app.localOnly);
 const publicApps = apps.filter((app) => !app.localOnly);
-const excludedFiles = new Set([
-  ...ALWAYS_EXCLUDED,
-  ...localOnlyApps.flatMap((app) => [app.file, ...(app.relatedFiles ?? [])]),
-]);
+/** 公開版に参照が残っていてはいけないファイル(localOnly のアプリ。リンク切れや存在の露出を防ぐ) */
+const localOnlyFiles = new Set(localOnlyApps.flatMap((app) => [app.file, ...(app.relatedFiles ?? [])]));
+/** 出力しないファイル(実データは、ページ内でファイル名に触れていても出力さえしなければよい) */
+const excludedFiles = new Set([...ALWAYS_EXCLUDED, ...localOnlyFiles]);
 
 const copyDir = (src, dest) => {
   fs.mkdirSync(dest, { recursive: true });
@@ -74,7 +74,7 @@ const verify = (dir) => {
     if (excludedFiles.has(name)) problems.push(`除外対象のファイルが出力されています: ${file}`);
     if (TEXT_EXTENSIONS.has(path.extname(name))) {
       const text = fs.readFileSync(file, "utf-8");
-      for (const excluded of excludedFiles) {
+      for (const excluded of localOnlyFiles) {
         if (text.includes(excluded)) problems.push(`${path.relative(dir, file)} に ${excluded} への参照が残っています`);
       }
     }

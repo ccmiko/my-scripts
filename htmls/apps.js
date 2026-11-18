@@ -15,8 +15,6 @@ globalThis.MINI_APPS = [
     icon: "🔑",
     title: "アカウント一覧",
     description: "ID/PWをワンクリックでコピー(マスターパスワードで暗号化)",
-    localOnly: true,
-    relatedFiles: ["account.sample.json"],
   },
   { file: "style_slayer.html", icon: "🧹", title: "書式殺し", description: "貼り付けたテキストの書式を削除" },
   {
