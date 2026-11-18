@@ -11,6 +11,14 @@
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
   <!-- テーマ(ダークモード)をちらつかせず適用するため、head で同期的に読み込む -->
   <script src="./common.js"></script>
+  <!-- CDN から import する ES Module の改ざんチェック(SRI)。対応ブラウザでは、ハッシュが一致しないと読み込まない -->
+  <script type="importmap">
+    {
+      "integrity": {
+        "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.esm.min.js": "sha384-QQzZA46xA/VjjQvj6owZDvSOm5wwh/sb9wG3cf1XT2fC/4FT9H9BEhCur31NYnos"
+      }
+    }
+  </script>
   <style>
     .input-container {
       width: 100%;

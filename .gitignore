@@ -227,3 +227,6 @@ htmls/account.enc.json
 
 # ブックマークレットの生成物は、GitHub上からコピーできるようコミットする
 !bookmarklet/dist/
+
+# GitHub Pages 用のビルド結果(scripts/build-pages.js)
+_site/
