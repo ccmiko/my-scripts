@@ -158,4 +158,34 @@
   };
 
   window.MiniApps = { showSnackBar, copyText, toHttpUrl, createQrResultElem, playChime, createWakeLockKeeper };
+
+  // ---------------------------------------------------------------- PWA
+
+  // オフラインでも開けるよう Service Worker を登録する(http(s) で開いた場合のみ。localhost 以外は HTTPS が必要)
+  if ("serviceWorker" in navigator && window.isSecureContext && window.location.protocol.startsWith("http")) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./sw.js").catch((error) => console.warn("Service Worker の登録に失敗", error));
+    });
+  }
+
+  // ホーム画面から起動(standalone)した場合はブラウザの戻るボタンが無いため、一覧へ戻るボタンを表示する
+  const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+  const isIndexPage = /\/(index\.html)?$/.test(window.location.pathname);
+  if (isStandalone && !isIndexPage) {
+    const addHomeButton = () => {
+      const anchor = document.createElement("a");
+      anchor.href = "./index.html";
+      anchor.textContent = "🏠";
+      anchor.title = "一覧へ戻る";
+      anchor.setAttribute("aria-label", "一覧へ戻る");
+      anchor.style.cssText =
+        "position: fixed; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 1000; " +
+        "width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; " +
+        "border-radius: 50%; background: #2f9e44; color: #fff; font-size: 22px; text-decoration: none; " +
+        "box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);";
+      document.body.appendChild(anchor);
+    };
+    if (document.body) addHomeButton();
+    else document.addEventListener("DOMContentLoaded", addHomeButton);
+  }
 })();

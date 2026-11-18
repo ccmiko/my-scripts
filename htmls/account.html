@@ -4,6 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>アカウント一覧</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="theme-color" content="#2f9e44" />
+    <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
     <style>
     /*
      * コピペ元: https://webliker.info/css/75964/
@@ -491,7 +495,7 @@
         throw new Error("account.enc.json も account.json も見つかりません。\n下の「暗号化ファイルを作る」で account.enc.json を作成してください");
       } catch (error) {
         console.error(error);
-        window.alert(error.message);
+        window.alert(navigator.onLine ? error.message : "オフラインのためアカウント情報を読み込めません(アカウント情報はオフライン用に保存しません)");
       }
     };
 
