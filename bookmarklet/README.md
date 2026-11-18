@@ -15,6 +15,8 @@
 node scripts/build-bookmarklets.js
 ```
 
+再生成を忘れて push すると GitHub Actions(`.github/workflows/bookmarklet.yml`)が失敗して知らせてくれる。
+
 ## 共通処理
 
 複数のブックマークレットで使う処理は `_lib/<名前>.js` に置く。
