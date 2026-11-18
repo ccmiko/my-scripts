@@ -1,3 +1,5 @@
+// @title 強調リンクを作る
+// @description 指定した文字の位置へ飛ぶリンク(Text Fragment)を作ってコピーする
 // @include toast
 
 function main() {

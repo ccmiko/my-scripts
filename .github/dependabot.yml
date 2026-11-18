@@ -1,0 +1,19 @@
+# 依存関係の更新を自動で PR にする(GitHub Actions の SHA 固定、npm パッケージ)
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "deps(actions)"
+
+  - package-ecosystem: npm
+    directory: /parseExcel
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "deps(parseExcel)"

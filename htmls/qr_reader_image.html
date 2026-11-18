@@ -1,118 +1,134 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
-
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- バージョン固定 + SRI。更新時は integrity も再計算すること -->
-  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1.11/dist/index.global.js" integrity="sha384-XXN6/S6yXj8EpXnBTw3JGR9ZM+hixGxFCLYn0FHtg9cWh0ziKmAgTPEhecbCDOmj" crossorigin="anonymous"></script>
-  <title>QRコードリーダ(静止画版)</title>
-  <link rel="manifest" href="./manifest.webmanifest" />
-  <meta name="theme-color" content="#2f9e44" />
-  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
-  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
-  <!-- テーマ(ダークモード)をちらつかせず適用するため、head で同期的に読み込む -->
-  <script src="./common.js"></script>
-  <!-- CDN から import する ES Module の改ざんチェック(SRI)。対応ブラウザでは、ハッシュが一致しないと読み込まない -->
-  <script type="importmap">
-    {
-      "integrity": {
-        "https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.min.js": "sha384-Hd/aFZsVoQqDnKbAh+QZ9+4xbrYJWG78quvXteuXeB7FpE5/ZHxktY1UeF4r8jpU",
-        "https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner-worker.min.js": "sha384-irhTGf70Ryc7WyNLyAljPrpg7lTLXwg5QbYsw40uLuCdAa4ziKF5DVclab4C7uxc"
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QRコードリーダ(静止画版)</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="theme-color" content="#2f9e44" />
+    <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+    <!-- テーマ(ダークモード)をちらつかせず適用するため、head で同期的に読み込む -->
+    <script src="./common.js"></script>
+    <!-- CDN から import する ES Module の改ざんチェック(SRI)。対応ブラウザでは、ハッシュが一致しないと読み込まない -->
+    <link rel="stylesheet" href="./app.css" />
+    <style>
+      .preview {
+        display: block;
+        margin: 8px auto;
+        max-width: 200px;
+        max-height: 200px;
+        object-fit: contain;
       }
-    }
-  </script>
-</head>
 
-<body style="height: 90vh; display: flex; flex-flow: column; justify-content: center; align-items: center;">
-  <div class="h-full flex flex-col justify-center items-center">
-    <label id="uploader-label" for="uploader">
-      <div id="uploader-elem"
-        class="px-4 py-2.5 text-white bg-blue-500 rounded-md hover:opacity-80 active:border-blue-600 active:border-2 active:scale-105 cursor-pointer">
-        画像を読み込む</div>
-    </label>
-    <input type="file" id="uploader" accept="image/*" style="display:none;">
-    <div id="result" class="my-6">
-      <p class="text-base text-gray-500">ここに読み取り結果が出力されます。</p>
-    </div>
-  </div>
-
-  <script type="module">
-    import QrScanner from 'https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.min.js'
-
-    const init = () => {
-      document.getElementById('uploader').addEventListener('change', handleSelectImage);
-    };
-
-    /** 前回の読み取り結果を消す(先頭の説明文は残す) */
-    const clearResult = (resultElem) => {
-      while (resultElem.children.length > 1) {
-        resultElem.lastElementChild.remove();
+      #video {
+        display: block;
+        width: 100%;
+        max-height: 70vh;
+        margin-top: 12px;
+        background: #000;
+        border-radius: 8px;
       }
-    }
-
-    const createErrorElem = (message) => {
-      const msgElem = document.createElement("p")
-      msgElem.className = "text-base text-red-500 my-4"
-      msgElem.textContent = message
-      return msgElem
-    }
-
-    /** 読み込んだ画像のプレビュー(縦横比を保って縮小表示) */
-    const createImagePreview = (file) => {
-      const wrapper = document.createElement("div")
-
-      const msgElem = document.createElement("p")
-      msgElem.className = "text-base text-gray-500 mt-4"
-      msgElem.textContent = "↓読み込んだ画像";
-
-      const imgElem = document.createElement("img");
-      imgElem.src = URL.createObjectURL(file);
-      imgElem.onload = () => URL.revokeObjectURL(imgElem.src)
-      imgElem.alt = imgElem.title = file.name;
-      imgElem.className = "block m-auto max-w-[200px] max-h-[200px] object-contain"
-
-      wrapper.appendChild(msgElem)
-      wrapper.appendChild(imgElem)
-      return wrapper
-    }
-
-    const handleSelectImage = async (e) => {
-      const uploaderElem = e.target
-      if (!uploaderElem.files.length) {
-        return
-      }
-      const file = uploaderElem.files[0]
-      // 同じファイルを選び直しても change イベントが発火するようにする
-      uploaderElem.value = ""
-
-      const resultElem = document.getElementById("result");
-      clearResult(resultElem)
-      const containerElem = document.createElement("div")
-      resultElem.appendChild(containerElem)
-
-      let data = null
-      try {
-        const result = await QrScanner.scanImage(file, { returnDetailedScanResult: true })
-        data = result.data
-        console.debug("decoded qr code:", data);
-      } catch (error) {
-        if (error === QrScanner.NO_QR_CODE_FOUND || error === "No QR code found") {
-          containerElem.appendChild(createErrorElem("画像からQRコードが見つかりませんでした"))
-        } else {
-          console.error(error);
-          containerElem.appendChild(createErrorElem("QRコードの読み取り処理に失敗しました"))
+    </style>
+    <script type="importmap">
+      {
+        "integrity": {
+          "https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.min.js": "sha384-Hd/aFZsVoQqDnKbAh+QZ9+4xbrYJWG78quvXteuXeB7FpE5/ZHxktY1UeF4r8jpU",
+          "https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner-worker.min.js": "sha384-irhTGf70Ryc7WyNLyAljPrpg7lTLXwg5QbYsw40uLuCdAa4ziKF5DVclab4C7uxc"
         }
       }
+    </script>
+  </head>
 
-      if (data !== null) {
-        containerElem.appendChild(window.MiniApps.createQrResultElem(data))
-      }
-      containerElem.appendChild(createImagePreview(file))
-    }
+  <body>
+    <div class="wrapper">
+      <h1>QRコードリーダ(静止画版)</h1>
+      <section>
+        <label id="uploader-label" for="uploader" style="display: inline-block">
+          <span id="uploader-elem" class="button primary">画像を読み込む</span>
+        </label>
+        <input type="file" id="uploader" accept="image/*" hidden />
+        <div id="result">
+          <p class="muted">ここに読み取り結果が出力されます。</p>
+        </div>
+      </section>
+    </div>
 
-    init()
-  </script>
-</body>
+    <script type="module">
+      import QrScanner from "https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.min.js";
 
+      const init = () => {
+        document.getElementById("uploader").addEventListener("change", handleSelectImage);
+      };
+
+      /** 前回の読み取り結果を消す(先頭の説明文は残す) */
+      const clearResult = (resultElem) => {
+        while (resultElem.children.length > 1) {
+          resultElem.lastElementChild.remove();
+        }
+      };
+
+      const createErrorElem = (message) => {
+        const msgElem = document.createElement("p");
+        msgElem.className = "error";
+        msgElem.textContent = message;
+        return msgElem;
+      };
+
+      /** 読み込んだ画像のプレビュー(縦横比を保って縮小表示) */
+      const createImagePreview = (file) => {
+        const wrapper = document.createElement("div");
+
+        const msgElem = document.createElement("p");
+        msgElem.className = "muted";
+        msgElem.textContent = "↓読み込んだ画像";
+
+        const imgElem = document.createElement("img");
+        imgElem.src = URL.createObjectURL(file);
+        imgElem.onload = () => URL.revokeObjectURL(imgElem.src);
+        imgElem.alt = imgElem.title = file.name;
+        imgElem.className = "preview";
+
+        wrapper.appendChild(msgElem);
+        wrapper.appendChild(imgElem);
+        return wrapper;
+      };
+
+      const handleSelectImage = async (e) => {
+        const uploaderElem = e.target;
+        if (!uploaderElem.files.length) {
+          return;
+        }
+        const file = uploaderElem.files[0];
+        // 同じファイルを選び直しても change イベントが発火するようにする
+        uploaderElem.value = "";
+
+        const resultElem = document.getElementById("result");
+        clearResult(resultElem);
+        const containerElem = document.createElement("div");
+        resultElem.appendChild(containerElem);
+
+        let data = null;
+        try {
+          const result = await QrScanner.scanImage(file, { returnDetailedScanResult: true });
+          data = result.data;
+          console.debug("decoded qr code:", data);
+        } catch (error) {
+          if (error === QrScanner.NO_QR_CODE_FOUND || error === "No QR code found") {
+            containerElem.appendChild(createErrorElem("画像からQRコードが見つかりませんでした"));
+          } else {
+            console.error(error);
+            containerElem.appendChild(createErrorElem("QRコードの読み取り処理に失敗しました"));
+          }
+        }
+
+        if (data !== null) {
+          containerElem.appendChild(window.MiniApps.createQrResultElem(data));
+        }
+        containerElem.appendChild(createImagePreview(file));
+      };
+
+      init();
+    </script>
+  </body>
 </html>

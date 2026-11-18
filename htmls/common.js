@@ -156,25 +156,22 @@
     }
   };
 
-  const COPY_BUTTON_CLASS =
-    "ml-2 px-2 text-base bg-green-400 text-white rounded-md hover:opacity-60 " +
-    "active:border-green-600 active:border-2 active:scale-105 cursor-pointer";
-
   /**
-   * QRコードの読み取り結果を表示する要素を作る(Tailwind のクラスを使用)。
+   * QRコードの読み取り結果を表示する要素を作る(app.css の .qr-result を使用)。
    * http(s) の URL はリンクとして、それ以外はテキストとして表示し、どちらもコピーできる。
    */
   const createQrResultElem = (data) => {
     const containerElem = document.createElement("div");
+    containerElem.className = "qr-result";
     const url = toHttpUrl(data);
 
     const copyButton = document.createElement("button");
     copyButton.type = "button";
-    copyButton.className = COPY_BUTTON_CLASS;
+    copyButton.className = "primary";
 
     if (url) {
       const anchorElem = document.createElement("a");
-      anchorElem.className = "text-base text-blue-500 break-all";
+      anchorElem.className = "qr-result-text";
       anchorElem.href = url.href;
       anchorElem.textContent = url.href;
       anchorElem.target = "_blank";
@@ -185,7 +182,7 @@
       copyButton.addEventListener("click", () => copyText(url.href, "URLをコピーしました"));
     } else {
       const textElem = document.createElement("p");
-      textElem.className = "text-base whitespace-pre-wrap break-all";
+      textElem.className = "qr-result-text";
       textElem.textContent = data;
       containerElem.appendChild(textElem);
 
@@ -275,7 +272,14 @@
   };
 
   window.MiniApps = {
-    showSnackBar, copyText, toHttpUrl, createQrResultElem, playChime, createWakeLockKeeper, getThemePreference, setTheme,
+    showSnackBar,
+    copyText,
+    toHttpUrl,
+    createQrResultElem,
+    playChime,
+    createWakeLockKeeper,
+    getThemePreference,
+    setTheme,
   };
 
   // ---------------------------------------------------------------- PWA

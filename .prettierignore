@@ -1,0 +1,11 @@
+# 生成物
+bookmarklet/dist/
+_site/
+# ロックファイル・依存関係
+package-lock.json
+node_modules/
+# 実データ(git 管理外)
+htmls/account.json
+htmls/account.enc.json
+# ブックマークレットの登録ページ用データ(scripts/build-bookmarklets.js が生成)
+htmls/bookmarklets.data.js

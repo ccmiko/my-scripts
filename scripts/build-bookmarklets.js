@@ -10,6 +10,9 @@
  *
  * 複数のブックマークレットで使う処理は bookmarklet/_lib/<名前>.js に置き、
  * ソース中に `// @include <名前>` と書くとビルド時にその行が中身に置き換わる。
+ *
+ * 各ソースの先頭には `// @title 名前` と `// @description 説明` を書く。
+ * これらから、登録ページ(htmls/bookmarklets.html)用のデータ htmls/bookmarklets.data.js も生成する。
  */
 const fs = require("fs");
 const path = require("path");
@@ -18,6 +21,19 @@ const SRC_DIR = path.join(__dirname, "..", "bookmarklet");
 const LIB_DIR = path.join(SRC_DIR, "_lib");
 const DIST_DIR = path.join(SRC_DIR, "dist");
 const INCLUDE_PATTERN = /^[ \t]*\/\/[ \t]*@include[ \t]+([\w-]+)[ \t]*$/gm;
+const META_PATTERN = /^[ \t]*\/\/[ \t]*@(title|description)[ \t]+(.+?)[ \t]*$/gm;
+const DATA_PATH = path.join(__dirname, "..", "htmls", "bookmarklets.data.js");
+
+/** `// @title` / `// @description` を読み取り、コードからは取り除く */
+const extractMeta = (source, file) => {
+  const meta = {};
+  const code = source.replace(META_PATTERN, (_, key, value) => {
+    meta[key] = value;
+    return "";
+  });
+  if (!meta.title) throw new Error(`${file}: 先頭に // @title を書いてください`);
+  return { meta, code };
+};
 
 const resolveIncludes = (source, file) =>
   source.replace(INCLUDE_PATTERN, (_, name) => {
@@ -36,13 +52,19 @@ const toBookmarklet = (source) => {
 };
 
 const checkOnly = process.argv.includes("--check");
-const files = fs.readdirSync(SRC_DIR).filter((file) => file.endsWith(".js")).sort();
-const expected = new Map(
-  files.map((file) => {
-    const source = resolveIncludes(fs.readFileSync(path.join(SRC_DIR, file), "utf-8"), file);
-    return [file.replace(/\.js$/, ".txt"), `${toBookmarklet(source)}\n`];
-  })
-);
+const files = fs
+  .readdirSync(SRC_DIR)
+  .filter((file) => file.endsWith(".js"))
+  .sort();
+const built = files.map((file) => {
+  const { meta, code } = extractMeta(fs.readFileSync(path.join(SRC_DIR, file), "utf-8"), file);
+  const href = toBookmarklet(resolveIncludes(code, file));
+  return { name: file.replace(/\.js$/, ""), title: meta.title, description: meta.description ?? "", href };
+});
+const expected = new Map(built.map(({ name, href }) => [`${name}.txt`, `${href}\n`]));
+const expectedData =
+  "/** ブックマークレットの一覧(scripts/build-bookmarklets.js が生成。直接編集しないこと) */\n" +
+  `globalThis.BOOKMARKLETS = ${JSON.stringify(built, null, 2)};\n`;
 
 if (checkOnly) {
   const actualFiles = fs.existsSync(DIST_DIR) ? fs.readdirSync(DIST_DIR).filter((f) => f.endsWith(".txt")) : [];
@@ -53,9 +75,14 @@ if (checkOnly) {
     else if (fs.readFileSync(distPath, "utf-8") !== content) problems.push(`outdated: ${name}`);
   }
   actualFiles.filter((name) => !expected.has(name)).forEach((name) => problems.push(`orphan: ${name}`));
+  if (!fs.existsSync(DATA_PATH) || fs.readFileSync(DATA_PATH, "utf-8") !== expectedData) {
+    problems.push(`outdated: ${path.relative(process.cwd(), DATA_PATH)}`);
+  }
   if (problems.length) {
     console.error(problems.join("\n"));
-    console.error("\nbookmarklet/dist が最新ではありません。`node scripts/build-bookmarklets.js` を実行してコミットしてください");
+    console.error(
+      "\nbookmarklet/dist(または登録ページ用データ)が最新ではありません。`node scripts/build-bookmarklets.js` を実行してコミットしてください",
+    );
     process.exit(1);
   }
   console.info("bookmarklet/dist is up to date");
@@ -66,6 +93,8 @@ if (checkOnly) {
     fs.writeFileSync(outPath, content);
     console.info(`generated: ${path.relative(process.cwd(), outPath)}`);
   }
+  fs.writeFileSync(DATA_PATH, expectedData);
+  console.info(`generated: ${path.relative(process.cwd(), DATA_PATH)}`);
   // ソースが消えた生成物は削除する
   fs.readdirSync(DIST_DIR)
     .filter((name) => name.endsWith(".txt") && !expected.has(name))

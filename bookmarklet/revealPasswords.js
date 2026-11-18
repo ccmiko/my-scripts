@@ -1,3 +1,5 @@
+// @title パスワード欄を表示
+// @description パスワード入力欄の中身を表示する。もう一度実行すると伏せ字に戻す
 // @include toast
 
 /**
@@ -30,6 +32,10 @@ function main() {
     input.type = "text";
     input.setAttribute(MARK, "");
   });
-  showToast(targets.length > 0 ? `${targets.length}個の入力欄を表示しました(もう一度実行で戻す)` : "パスワード入力欄が見つかりませんでした");
+  showToast(
+    targets.length > 0
+      ? `${targets.length}個の入力欄を表示しました(もう一度実行で戻す)`
+      : "パスワード入力欄が見つかりませんでした",
+  );
 }
 main();

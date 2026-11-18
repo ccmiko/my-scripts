@@ -1,3 +1,5 @@
+// @title Markdownリンクをコピー
+// @description 表示中のページを [タイトル](URL) の形でコピーする
 // @include toast
 
 /**

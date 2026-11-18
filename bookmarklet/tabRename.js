@@ -1,3 +1,5 @@
+// @title タブ名を変更
+// @description 表示中のタブのタイトルを書き換える
 // @include floatingInput
 
 function main() {
