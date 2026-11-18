@@ -19,6 +19,7 @@ const STATIC_FILES = [
   "./",
   "./index.html",
   "./apps.js",
+  "./bookmarklets.data.js",
   "./app.css",
   "./common.js",
   "./manifest.webmanifest",

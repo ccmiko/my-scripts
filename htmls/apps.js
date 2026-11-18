@@ -88,4 +88,10 @@ globalThis.MINI_APPS = [
     title: "開発用変換ツール",
     description: "JSON整形・Base64・URLエンコード・JWT・ハッシュ・UUIDなど",
   },
+  {
+    file: "bookmarklets.html",
+    icon: "🔖",
+    title: "ブックマークレット",
+    description: "便利なブックマークレットをドラッグで登録",
+  },
 ];

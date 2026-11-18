@@ -1,3 +1,5 @@
+// @title 右クリック保存リンク
+// @description 入力した URL を、右クリックで保存できるリンクとして表示する
 // @include floatingInput
 
 function main() {

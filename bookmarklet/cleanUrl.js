@@ -1,3 +1,5 @@
+// @title URLの追跡パラメータ削除
+// @description utm_* などを取り除いた URL をコピーする。Amazon は短い URL にする
 // @include toast
 
 /**

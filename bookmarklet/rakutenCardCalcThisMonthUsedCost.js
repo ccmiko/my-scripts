@@ -1,3 +1,5 @@
+// @title 楽天カード 今月の利用額
+// @description 楽天e-NAVI のトップページで、今月の利用額を計算して表示する
 //  https://www.rakuten-card.co.jp/e-navi/members/index.xhtml で使用する
 function main() {
   const getAmount = (id) => {

@@ -1,3 +1,5 @@
+// @title 表をCSVで保存
+// @description ページ内の表(table)を CSV ファイルとして保存する
 // @include toast
 
 /**
