@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>文字数カウンタ</title>
+  <link rel="stylesheet" href="./app.css" />
+  <style>
+    #text {
+      min-height: 14em;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 8px;
+      margin: 0;
+    }
+
+    .stats div {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+    }
+
+    .stats dt {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .stats dd {
+      margin: 0;
+      font-size: 22px;
+      font-weight: bold;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stats dd small {
+      font-size: 12px;
+      font-weight: normal;
+      color: var(--muted);
+    }
+
+    .over {
+      color: var(--warn);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrapper">
+    <h1>文字数カウンタ</h1>
+
+    <section>
+      <textarea id="text" placeholder="ここに文章を入力・貼り付け"></textarea>
+      <div class="row">
+        <button id="clear" type="button">クリア</button>
+        <span id="selection" class="muted"></span>
+        <span class="muted" style="margin-left: auto;">入力内容はこのブラウザに自動保存されます</span>
+      </div>
+    </section>
+
+    <section>
+      <h2>カウント</h2>
+      <dl id="stats" class="stats"></dl>
+    </section>
+
+    <section>
+      <h2>上限チェック</h2>
+      <div class="row">
+        <label>上限 <input id="limit" type="number" min="1" step="1" placeholder="例: 400" style="width: 7em;" /> 文字</label>
+        <span id="limit-result"></span>
+      </div>
+      <p class="muted">
+        X(旧Twitter)は全角を2、半角を1として280まで、原稿用紙は20字×20行(改行で次の行へ)として換算しています。
+      </p>
+    </section>
+  </div>
+
+  <script type="module">
+    const DRAFT_KEY = "CHAR_COUNTER_DRAFT";
+    const LIMIT_KEY = "CHAR_COUNTER_LIMIT";
+    const $ = (id) => document.getElementById(id);
+
+    // 絵文字や結合文字を1文字として数える
+    const segmenter = typeof Intl.Segmenter === "function" ? new Intl.Segmenter("ja", { granularity: "grapheme" }) : null;
+    const toChars = (text) => (segmenter ? Array.from(segmenter.segment(text), (s) => s.segment) : Array.from(text));
+
+    /** 半角(ASCII・半角カナ)なら true */
+    const isHalfWidth = (char) => /^[ -~｡-ﾟ]$/.test(char);
+
+    /** 原稿用紙(20字×20行)の行数。改行ごとに次の行へ送る */
+    const countManuscriptLines = (text) =>
+      text.split("\n").reduce((sum, line) => sum + Math.max(1, Math.ceil(toChars(line).length / 20)), 0);
+
+    const analyze = (text) => {
+      const normalized = text.replace(/\r\n?/g, "\n");
+      const chars = toChars(normalized).filter((c) => c !== "\n");
+      const half = chars.filter(isHalfWidth).length;
+      const full = chars.length - half;
+      const manuscriptLines = normalized ? countManuscriptLines(normalized) : 0;
+      return {
+        chars: chars.length,
+        noSpace: chars.filter((c) => !/^\s$/.test(c) && c !== "　").length,
+        full,
+        half,
+        lines: normalized ? normalized.split("\n").length : 0,
+        paragraphs: normalized.split(/\n\s*\n/).filter((p) => p.trim()).length,
+        utf8: new TextEncoder().encode(normalized).length,
+        sjis: full * 2 + half + (normalized.split("\n").length - 1) * 2,
+        xWeight: full * 2 + half + (normalized.split("\n").length - 1),
+        manuscriptLines,
+        manuscriptPages: Math.ceil(manuscriptLines / 20),
+        readMinutes: Math.ceil(chars.length / 500),
+      };
+    };
+
+    const STAT_DEFS = [
+      ["chars", "文字数(改行除く)", "字"],
+      ["noSpace", "空白・改行を除く", "字"],
+      ["full", "全角", "字"],
+      ["half", "半角", "字"],
+      ["lines", "行数", "行"],
+      ["paragraphs", "段落数", "段落"],
+      ["utf8", "バイト数(UTF-8)", "B"],
+      ["sjis", "バイト数(Shift_JIS 目安)", "B"],
+      ["xWeight", "X(旧Twitter) / 280", ""],
+      ["manuscriptPages", "原稿用紙(400字詰)", "枚"],
+      ["readMinutes", "読むのにかかる時間(目安)", "分"],
+    ];
+
+    const statElems = Object.fromEntries(
+      STAT_DEFS.map(([key, label, unit]) => {
+        const div = document.createElement("div");
+        const dt = document.createElement("dt");
+        dt.textContent = label;
+        const dd = document.createElement("dd");
+        const value = document.createElement("span");
+        const small = document.createElement("small");
+        small.textContent = unit ? ` ${unit}` : "";
+        dd.append(value, small);
+        div.append(dt, dd);
+        $("stats").appendChild(div);
+        return [key, { value, small }];
+      })
+    );
+
+    const save = (key, value) => {
+      try {
+        window.localStorage.setItem(key, value);
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    const render = () => {
+      const text = $("text").value;
+      const result = analyze(text);
+      STAT_DEFS.forEach(([key]) => {
+        statElems[key].value.textContent = result[key].toLocaleString("ja-JP");
+      });
+      statElems.xWeight.value.classList.toggle("over", result.xWeight > 280);
+      statElems.manuscriptPages.small.textContent = ` 枚(${result.manuscriptLines}行)`;
+
+      const limit = Number($("limit").value);
+      const limitResult = $("limit-result");
+      if (limit > 0) {
+        const diff = limit - result.chars;
+        limitResult.textContent = diff >= 0 ? `あと ${diff.toLocaleString("ja-JP")} 文字` : `${(-diff).toLocaleString("ja-JP")} 文字オーバー`;
+        limitResult.className = diff >= 0 ? "" : "over";
+      } else {
+        limitResult.textContent = "";
+      }
+      save(DRAFT_KEY, text);
+    };
+
+    const renderSelection = () => {
+      const textarea = $("text");
+      const selected = textarea.value.slice(textarea.selectionStart, textarea.selectionEnd);
+      $("selection").textContent = selected ? `選択中: ${analyze(selected).chars.toLocaleString("ja-JP")} 文字` : "";
+    };
+
+    try {
+      $("text").value = window.localStorage.getItem(DRAFT_KEY) ?? "";
+      $("limit").value = window.localStorage.getItem(LIMIT_KEY) ?? "";
+    } catch (error) {
+      console.error(error);
+    }
+    $("text").addEventListener("input", render);
+    document.addEventListener("selectionchange", renderSelection);
+    $("limit").addEventListener("input", () => {
+      save(LIMIT_KEY, $("limit").value);
+      render();
+    });
+    $("clear").addEventListener("click", () => {
+      if ($("text").value && !window.confirm("入力内容を消去しますか？")) return;
+      $("text").value = "";
+      render();
+      $("text").focus();
+    });
+    render();
+  </script>
+</body>
+
+</html>
