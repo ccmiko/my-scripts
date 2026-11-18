@@ -20,23 +20,18 @@
         max-width: none;
         display: grid;
         gap: 12px;
-        grid-template-areas: "header" "input" "tools" "output";
+        grid-template-areas: "input" "tools" "output";
       }
 
-      header {
-        grid-area: header;
+      /* ツール列の最後に置く、説明とテーマ切り替えボタン */
+      .tools-footer {
         display: flex;
-        flex-wrap: wrap;
-        align-items: baseline;
-        gap: 4px 12px;
-      }
-
-      header h1 {
-        margin: 0;
-      }
-
-      header .theme-slot {
-        margin-left: auto;
+        align-items: center;
+        gap: 8px;
+        margin-top: auto;
+        padding-top: 12px;
+        font-size: 12px;
+        color: var(--muted);
       }
 
       section {
@@ -136,10 +131,8 @@
           height: 100dvh;
           padding: 12px 16px;
           grid-template-columns: 290px minmax(0, 1fr) minmax(0, 1fr);
-          grid-template-rows: auto minmax(0, 1fr);
-          grid-template-areas:
-            "header header header"
-            "tools input output";
+          grid-template-rows: minmax(0, 1fr);
+          grid-template-areas: "tools input output";
         }
 
         #tools-section {
@@ -158,13 +151,6 @@
 
   <body>
     <div class="wrapper">
-      <header>
-        <h1>開発用変換ツール</h1>
-        <span class="muted">すべてブラウザ内で処理し、入力内容はどこにも送信・保存しません。</span>
-        <!-- テーマ切り替えボタンを、左下に浮かせず(ツール列と重なるため)ここに置く -->
-        <span class="theme-slot" data-theme-button-slot></span>
-      </header>
-
       <section id="input-section">
         <div class="io-header">
           <h2>入力</h2>
@@ -183,6 +169,11 @@
 
       <section id="tools-section" aria-label="変換">
         <div id="tools" class="tools"></div>
+        <div class="tools-footer">
+          <!-- テーマ切り替えボタンを、左下に浮かせず(ツール列と重なるため)ここに置く -->
+          <span data-theme-button-slot></span>
+          <span>すべてブラウザ内で処理し、入力内容はどこにも送信・保存しません。</span>
+        </div>
       </section>
 
       <section id="output-section">

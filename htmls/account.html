@@ -161,56 +161,6 @@
 
   <body>
     <div class="wrapper">
-      <h1>アカウント一覧</h1>
-
-      <!-- データが無い初回だけ表示する案内 -->
-      <section id="first-guide" class="guide" hidden>
-        <h2>👋 はじめに</h2>
-        <ol>
-          <li>
-            下の表は<strong>サンプル</strong>です。ページ下部の「JSON(平文)」欄のサンプルを、自分のアカウント情報に書き換えてください(書き換えると表にすぐ反映されます)。
-          </li>
-          <li>
-            マスターパスワードを2回入力して「暗号化して保存」を押すと、<code>account.enc.json</code>
-            がダウンロードされ、そのまま開いた状態になります。
-          </li>
-          <li>
-            次回からは「暗号化ファイルを開く」でそのファイルを選びます(「このブラウザに記憶する」を選べば選び直しも不要)。
-            ローカルの Docker で使う場合は <code>htmls/</code> に置いても開けます。
-          </li>
-        </ol>
-        <p class="muted">
-          項目: <code>service</code> サービス名 / <code>id</code> ID / <code>pw</code> パスワード /
-          <code>link</code> ログイン画面などの URL(http(s) のみ) / <code>note</code> 備考(<code>\n</code>
-          で改行)。使わない項目は省略できます。
-        </p>
-      </section>
-
-      <!-- 平文の account.json を読み込んだ場合の警告 -->
-      <section id="plain-warning" class="warning" hidden>
-        平文の <code>account.json</code> を読み込んでいます。下の「暗号化ファイルを作る」で
-        <code>account.enc.json</code> を作成し、<code>account.json</code> は削除することをおすすめします。
-      </section>
-
-      <!-- 端末内の暗号化ファイルを開く(サーバーに置かなくてよい) -->
-      <section id="open-panel">
-        <h2>暗号化ファイルを開く</h2>
-        <p class="muted">端末内の <code>account.enc.json</code> を選んで開きます。ファイルはどこにも送信されません。</p>
-        <div class="row">
-          <label class="button primary" for="enc-file">ファイルを選ぶ</label>
-          <input id="enc-file" type="file" accept=".json,application/json" hidden />
-          <label><input id="remember" type="checkbox" /> このブラウザに暗号化したまま記憶する</label>
-        </div>
-        <p id="remembered-info" class="muted" hidden>
-          暗号化データをこのブラウザに記憶しています。
-          <button id="forget" type="button">記憶を消す</button>
-        </p>
-        <p id="open-message" class="error" role="status"></p>
-        <p class="muted">
-          記憶したデータは暗号化されたままですが、同じサイトの他のページからは読めます。マスターパスワードは長く推測されにくいものにしてください。
-        </p>
-      </section>
-
       <!-- 暗号化データを読み込んだ後のロック画面 -->
       <form id="unlock-panel" hidden>
         <section>
@@ -226,6 +176,12 @@
           </div>
         </section>
       </form>
+
+      <!-- 平文の account.json を読み込んだ場合の警告 -->
+      <section id="plain-warning" class="warning" hidden>
+        平文の <code>account.json</code> を読み込んでいます。下の「暗号化ファイルを作る」で
+        <code>account.enc.json</code> を作成し、<code>account.json</code> は削除することをおすすめします。
+      </section>
 
       <!-- 一覧 -->
       <section id="table-container" hidden>
@@ -250,6 +206,44 @@
             <!-- jsでデータを挿入する -->
           </tbody>
         </table>
+      </section>
+
+      <!-- 端末内の暗号化ファイルを開く(サーバーに置かなくてよい) -->
+      <section id="open-panel">
+        <h2>暗号化ファイルを開く</h2>
+        <div class="row">
+          <label class="button primary" for="enc-file">ファイルを選ぶ</label>
+          <input id="enc-file" type="file" accept=".json,application/json" hidden />
+          <label><input id="remember" type="checkbox" /> このブラウザに暗号化したまま記憶する</label>
+        </div>
+        <p id="remembered-info" class="muted" hidden>
+          暗号化データをこのブラウザに記憶しています。
+          <button id="forget" type="button">記憶を消す</button>
+        </p>
+        <p id="open-message" class="error" role="status"></p>
+      </section>
+
+      <!-- データが無い初回だけ表示する案内 -->
+      <section id="first-guide" class="guide" hidden>
+        <h2>👋 はじめに</h2>
+        <ol>
+          <li>
+            上の表は<strong>サンプル</strong>です。ページ下部の「JSON(平文)」欄のサンプルを、自分のアカウント情報に書き換えてください(書き換えると表にすぐ反映されます)。
+          </li>
+          <li>
+            マスターパスワードを2回入力して「暗号化して保存」を押すと、<code>account.enc.json</code>
+            がダウンロードされ、そのまま開いた状態になります。
+          </li>
+          <li>
+            次回からは「暗号化ファイルを開く」でそのファイルを選びます(「このブラウザに記憶する」を選べば選び直しも不要)。
+            ローカルの Docker で使う場合は <code>htmls/</code> に置いても開けます。
+          </li>
+        </ol>
+        <p class="muted">
+          項目: <code>service</code> サービス名 / <code>id</code> ID / <code>pw</code> パスワード /
+          <code>link</code> ログイン画面などの URL(http(s) のみ) / <code>note</code> 備考(<code>\n</code>
+          で改行)。使わない項目は省略できます。
+        </p>
       </section>
 
       <details id="encrypt-panel">
@@ -284,6 +278,16 @@
           </p>
         </section>
       </details>
+
+      <div class="usage">
+        <p>
+          「暗号化ファイルを開く」では、端末内の
+          <code>account.enc.json</code> を選んで開きます。ファイルはどこにも送信されません。
+        </p>
+        <p>
+          「このブラウザに記憶する」で記憶したデータは暗号化されたままですが、同じサイトの他のページからは読めます。マスターパスワードは長く推測されにくいものにしてください。
+        </p>
+      </div>
     </div>
 
     <script type="module">

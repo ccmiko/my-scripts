@@ -16,46 +16,44 @@
         text-align: center;
       }
 
+      .status p {
+        margin: 0;
+      }
+
       #lock-status {
         font-weight: bold;
       }
 
       #lock-elapsed-time {
         display: block;
-        margin: 8px 0 16px;
-        font-size: 56px;
+        margin: 4px 0 10px;
+        font-size: 36px;
         font-weight: bold;
         font-variant-numeric: tabular-nums;
-        line-height: 1.1;
+        line-height: 1.2;
       }
 
       #lock-button {
-        min-width: 10em;
-        font-size: 20px;
-        padding: 10px 24px;
+        min-width: 9em;
+        font-size: 17px;
+        padding: 8px 20px;
       }
 
       #description {
-        margin: 12px 0 0;
+        margin-top: 8px;
       }
     </style>
   </head>
 
   <body>
     <div class="wrapper">
-      <h1>火継</h1>
       <section class="status">
         <p>現在の状態: <span id="lock-status">未ロック</span></p>
         <span id="lock-elapsed-time" aria-label="経過時間">00:00:00</span>
         <button id="lock-button" class="primary" value="true">ロックする</button>
-        <p id="description" class="muted" role="status" style="display: none"></p>
+        <p id="description" class="muted" role="status" hidden></p>
       </section>
       <section>
-        <h2>使い方・設定</h2>
-        <p class="muted">
-          指定した時間、画面がスリープしないようにします。スペースキーでもロックでき、ロック中は Esc
-          キーで解除できます。解除時は音が鳴ります。
-        </p>
         <div class="row">
           <label>
             解除音の音量: <span id="volume-value">100</span>%
@@ -64,6 +62,10 @@
           <button id="volume-test-button" type="button">試聴</button>
         </div>
       </section>
+      <p class="usage">
+        使い方: 指定した時間、画面がスリープしないようにします。スペースキーでもロックでき、ロック中は Esc
+        キーで解除できます。解除時は音が鳴ります。
+      </p>
     </div>
 
     <script type="module">
@@ -118,7 +120,8 @@
 
       const showDescription = (text) => {
         elems.description.textContent = text;
-        elems.description.style.display = "inline";
+        // ボタンの下に段落として表示する(inline にするとボタンの横に回り込んで崩れる)
+        elems.description.hidden = false;
       };
 
       const formatElapsed = (ms) => {
