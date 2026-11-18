@@ -8,22 +8,38 @@
 </head>
 
 <body style="height: 90vh; display: flex; flex-flow: column; justify-content: center; align-items: center;">
-  <p>↓に貼り付けた瞬間、テキストに付いている書式を削除します</p>
+  <p>↓に貼り付けた瞬間、テキストに付いている書式を削除し、書式なしのテキストをクリップボードにも書き戻します</p>
+  <label>
+    <input id="remove-tab" type="checkbox" checked>
+    タブ文字も削除する(Excel等の表を貼り付ける場合は外してください)
+  </label>
+  <p id="message" style="min-height: 1.5em; color: #2a7a4b;"></p>
   <textarea id="textarea" style="border-width: 2px; width: 90%; height: 90%; font-size: 20px"></textarea>
 </body>
 
-</html>
-
 <script type="module">
-  document.getElementById("textarea").addEventListener("paste", (e) => {
-    navigator.clipboard
-      .readText()
-      .then((clipText) => {
-        navigator.clipboard.writeText(
-          clipText
-            .replace(/\t/gm, "")
-            .trim()
-        );
-      })
-  })
+  const textarea = document.getElementById("textarea");
+  const removeTabElem = document.getElementById("remove-tab");
+  const messageElem = document.getElementById("message");
+
+  const cleanText = (text) => {
+    const replaced = removeTabElem.checked ? text.replace(/\t/g, "") : text;
+    return replaced.trim();
+  };
+
+  textarea.addEventListener("paste", async (e) => {
+    // ブラウザ標準の貼り付けを止め、加工後のテキストを挿入する
+    e.preventDefault();
+    const text = cleanText(e.clipboardData.getData("text/plain"));
+    textarea.setRangeText(text, textarea.selectionStart, textarea.selectionEnd, "end");
+    try {
+      await navigator.clipboard.writeText(text);
+      messageElem.textContent = "書式なしのテキストをクリップボードに書き戻しました";
+    } catch (error) {
+      console.error(error);
+      messageElem.textContent = "クリップボードへの書き戻しに失敗しました";
+    }
+  });
 </script>
+
+</html>
