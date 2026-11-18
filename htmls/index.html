@@ -10,6 +10,12 @@
       font-size: 20px;
       margin: 10px 0;
     }
+
+    .description {
+      display: block;
+      font-size: 14px;
+      color: #666;
+    }
   </style>
 </head>
 
@@ -19,22 +25,28 @@
   </ul>
 
   <script>
-    links = [
-      'account.html',
-      'style_slayer.html',
-      'medicine_management.html',
-      'fire_keeper.html',
-      'ocr.html',
-      'qr_reader_image.html',
-      'qr_reader_camera.html',
-      'mic.html',
+    const apps = [
+      { file: 'account.html', title: 'アカウント一覧', description: 'account.json のID/PWをワンクリックでコピー' },
+      { file: 'style_slayer.html', title: '書式殺し', description: '貼り付けたテキストの書式を削除' },
+      { file: 'medicine_management.html', title: '服薬記録帳', description: '今日おくすりを飲んだ時刻を記録' },
+      { file: 'fire_keeper.html', title: '火継', description: '指定時間、画面のスリープを防止' },
+      { file: 'ocr.html', title: '画像から文字起こし隊', description: '画像内の文字をOCRで抽出' },
+      { file: 'qr_reader_image.html', title: 'QRコードリーダ(静止画版)', description: '画像ファイルからQRコードを読み取り' },
+      { file: 'qr_reader_camera.html', title: 'QRコードリーダ(カメラ版)', description: 'カメラでQRコードを読み取り' },
+      { file: 'mic.html', title: '遅延再生くん', description: 'マイク入力を遅延させて再生' },
     ];
     const parentElem = document.getElementById('list');
-    links.forEach((link) => {
-      parentElem.insertAdjacentHTML(
-        'beforeend',
-        `<li><a href="./${link}" target="_blank">${link}</a></li>`
-      );
+    apps.forEach(({ file, title, description }) => {
+      const li = document.createElement('li');
+      const anchor = document.createElement('a');
+      anchor.href = `./${file}`;
+      anchor.target = '_blank';
+      anchor.textContent = title;
+      const desc = document.createElement('span');
+      desc.className = 'description';
+      desc.textContent = `${description} (${file})`;
+      li.append(anchor, desc);
+      parentElem.appendChild(li);
     });
   </script>
 </body>
