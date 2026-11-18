@@ -9,6 +9,8 @@
   <meta name="theme-color" content="#2f9e44" />
   <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+  <!-- テーマ(ダークモード)をちらつかせず適用するため、head で同期的に読み込む -->
+  <script src="./common.js"></script>
 </head>
 
 <body>
@@ -31,7 +33,6 @@
     </div>
   </main>
 
-  <script src="./common.js"></script>
   <script type="module">
     const state = {
       /** WakeLockSentinel。タブ非表示等でブラウザに解除されると null になる */

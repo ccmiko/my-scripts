@@ -1,9 +1,102 @@
 /**
  * ミニアプリ共通の処理。
  * file:// で直接開いても動くよう、ES Module ではなく通常のスクリプトとして読み込む。
+ * テーマをちらつかせずに適用するため、<head> 内で defer を付けずに読み込むこと。
  *   <script src="./common.js"></script>
  */
 (() => {
+  // ---------------------------------------------------------------- テーマ(ダークモード)
+
+  /**
+   * テーマの設定。"auto"(OSの設定に合わせる) / "light" / "dark"。全ページ共通で localStorage に保存する。
+   * 実際に適用するテーマは <html data-theme="light|dark"> に入れ、各ページの CSS は
+   * :root[data-theme="dark"] { ... } でダークモード用の色を定義する。
+   */
+  const THEME_KEY = "MINI_APPS_THEME";
+  const THEMES = {
+    auto: { icon: "🌓", label: "自動(OSの設定)" },
+    light: { icon: "☀️", label: "ライト" },
+    dark: { icon: "🌙", label: "ダーク" },
+  };
+  const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  let themeButton = null;
+
+  const getThemePreference = () => {
+    try {
+      const saved = window.localStorage.getItem(THEME_KEY);
+      return saved in THEMES ? saved : "auto";
+    } catch {
+      return "auto";
+    }
+  };
+
+  const applyTheme = () => {
+    const preference = getThemePreference();
+    const theme = preference === "auto" ? (darkQuery.matches ? "dark" : "light") : preference;
+    document.documentElement.dataset.theme = theme;
+    if (themeButton) {
+      themeButton.textContent = THEMES[preference].icon;
+      themeButton.title = `テーマ: ${THEMES[preference].label}(クリックで切り替え)`;
+      themeButton.setAttribute("aria-label", themeButton.title);
+    }
+  };
+
+  const setTheme = (preference) => {
+    try {
+      window.localStorage.setItem(THEME_KEY, preference);
+    } catch (error) {
+      console.error(error);
+    }
+    applyTheme();
+  };
+
+  // フォーム部品やスクロールバーの色もテーマに合わせる。ページ側の :root { color-scheme } より優先される
+  const themeStyle = document.createElement("style");
+  themeStyle.textContent = `
+    :root[data-theme="light"] { color-scheme: light; }
+    :root[data-theme="dark"] { color-scheme: dark; }
+    .mini-apps-theme-button {
+      position: fixed; left: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 1000;
+      width: 36px; height: 36px; padding: 0; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; font-size: 18px; line-height: 1;
+      border: 1px solid rgba(128, 128, 128, 0.4); background: Canvas; color: CanvasText;
+      opacity: 0.7; cursor: pointer; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    }
+    .mini-apps-theme-button:hover, .mini-apps-theme-button:focus-visible { opacity: 1; }
+    .mini-apps-theme-button--inline { position: static; width: 30px; height: 30px; font-size: 16px; box-shadow: none; }
+    @media print { .mini-apps-theme-button { display: none; } }
+  `;
+  document.head.appendChild(themeStyle);
+  applyTheme();
+  darkQuery.addEventListener("change", applyTheme);
+  // 別タブで切り替えた場合も反映する
+  window.addEventListener("storage", (event) => {
+    if (event.key === THEME_KEY) applyTheme();
+  });
+
+  const addThemeButton = () => {
+    themeButton = document.createElement("button");
+    themeButton.type = "button";
+    themeButton.className = "mini-apps-theme-button";
+    themeButton.addEventListener("click", () => {
+      const order = Object.keys(THEMES);
+      const next = order[(order.indexOf(getThemePreference()) + 1) % order.length];
+      setTheme(next);
+      showSnackBar(`テーマ: ${THEMES[next].label}`);
+    });
+    // ページに [data-theme-button-slot] があればそこに置き、無ければ左下に浮かせて表示する
+    const slot = document.querySelector("[data-theme-button-slot]");
+    if (slot) {
+      themeButton.classList.add("mini-apps-theme-button--inline");
+      slot.appendChild(themeButton);
+    } else {
+      document.body.appendChild(themeButton);
+    }
+    applyTheme();
+  };
+  if (document.body) addThemeButton();
+  else document.addEventListener("DOMContentLoaded", addThemeButton);
+
   const SNACK_BAR_STYLE =
     "z-index: 1000; position: fixed; top: 0; left: 10px; " +
     "width: fit-content; margin: 10px auto; padding: 6px; " +
@@ -157,7 +250,9 @@
     };
   };
 
-  window.MiniApps = { showSnackBar, copyText, toHttpUrl, createQrResultElem, playChime, createWakeLockKeeper };
+  window.MiniApps = {
+    showSnackBar, copyText, toHttpUrl, createQrResultElem, playChime, createWakeLockKeeper, getThemePreference, setTheme,
+  };
 
   // ---------------------------------------------------------------- PWA
 

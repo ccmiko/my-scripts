@@ -11,6 +11,8 @@
   <meta name="theme-color" content="#2f9e44" />
   <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+  <!-- テーマ(ダークモード)をちらつかせず適用するため、head で同期的に読み込む -->
+  <script src="./common.js"></script>
 </head>
 
 <body style="height: 90vh; display: flex; flex-flow: column; justify-content: center; align-items: center;">
@@ -24,7 +26,6 @@
     <video id="video" class="max-w-[800px] max-h-[800px] bg-black"></video>
   </div>
 
-  <script src="./common.js"></script>
   <script type="module">
     import QrScanner from 'https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.min.js'
     // 関数を跨いで参照したい変数群

@@ -8,7 +8,7 @@
  *
  * アプリを追加・削除したら APP_FILES と CACHE_VERSION を更新すること。
  */
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2";
 const CACHE_NAME = `mini-apps-${CACHE_VERSION}`;
 
 const APP_FILES = [

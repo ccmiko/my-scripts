@@ -9,10 +9,10 @@
   <meta name="theme-color" content="#2f9e44" />
   <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
-  <script src="./common.js" defer></script>
+  <!-- テーマ(ダークモード)をちらつかせず適用するため、head で同期的に読み込む -->
+  <script src="./common.js"></script>
   <style>
     :root {
-      color-scheme: light dark;
       --bg: #fafafa;
       --fg: #222;
       --muted: #777;
@@ -22,16 +22,14 @@
       --warn: #e8590c;
     }
 
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #1a1b1e;
-        --fg: #e6e6e6;
-        --muted: #999;
-        --card: #25262b;
-        --border: #3a3b40;
-        --accent: #51cf66;
-        --warn: #ff922b;
-      }
+    :root[data-theme="dark"] {
+      --bg: #1a1b1e;
+      --fg: #e6e6e6;
+      --muted: #999;
+      --card: #25262b;
+      --border: #3a3b40;
+      --accent: #51cf66;
+      --warn: #ff922b;
     }
 
     body {
