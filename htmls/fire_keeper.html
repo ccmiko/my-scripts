@@ -10,29 +10,61 @@
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
     <!-- テーマ(ダークモード)をちらつかせず適用するため、head で同期的に読み込む -->
     <script src="./common.js"></script>
+    <link rel="stylesheet" href="./app.css" />
+    <style>
+      .status {
+        text-align: center;
+      }
+
+      #lock-status {
+        font-weight: bold;
+      }
+
+      #lock-elapsed-time {
+        display: block;
+        margin: 8px 0 16px;
+        font-size: 56px;
+        font-weight: bold;
+        font-variant-numeric: tabular-nums;
+        line-height: 1.1;
+      }
+
+      #lock-button {
+        min-width: 10em;
+        font-size: 20px;
+        padding: 10px 24px;
+      }
+
+      #description {
+        margin: 12px 0 0;
+      }
+    </style>
   </head>
 
   <body>
-    <main>
-      <div class="button-wrapper">
-        <button id="lock-button" value="true">ロックする</button>
-        <p>
-          スペースキー押下でもロックできます。ロック中はESCキーで解除できます。ロック解除時は音が鳴ります(音量は下のスライダーで調整できます)。
-        </p>
-      </div>
-      <div class="text-wrapper">
+    <div class="wrapper">
+      <h1>火継</h1>
+      <section class="status">
         <p>現在の状態: <span id="lock-status">未ロック</span></p>
-        <p>経過時間: <span id="lock-elapsed-time">00:00:00</span></p>
-        <p id="description" style="display: none"></p>
-      </div>
-      <div class="volume-wrapper">
-        <label>
-          解除音の音量: <span id="volume-value">100</span>%
-          <input id="volume-input" type="range" min="0" max="100" step="1" value="100" />
-        </label>
-        <button id="volume-test-button" type="button">試聴</button>
-      </div>
-    </main>
+        <span id="lock-elapsed-time" aria-label="経過時間">00:00:00</span>
+        <button id="lock-button" class="primary" value="true">ロックする</button>
+        <p id="description" class="muted" role="status" style="display: none"></p>
+      </section>
+      <section>
+        <h2>使い方・設定</h2>
+        <p class="muted">
+          指定した時間、画面がスリープしないようにします。スペースキーでもロックでき、ロック中は Esc
+          キーで解除できます。解除時は音が鳴ります。
+        </p>
+        <div class="row">
+          <label>
+            解除音の音量: <span id="volume-value">100</span>%
+            <input id="volume-input" type="range" min="0" max="100" step="1" value="100" />
+          </label>
+          <button id="volume-test-button" type="button">試聴</button>
+        </div>
+      </section>
+    </div>
 
     <script type="module">
       const state = {

@@ -10,16 +10,50 @@
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
     <!-- テーマ(ダークモード)をちらつかせず適用するため、head で同期的に読み込む -->
     <script src="./common.js"></script>
+    <link rel="stylesheet" href="./app.css" />
+    <style>
+      .wrapper {
+        max-width: 960px;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .editor {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+      }
+
+      #textarea {
+        flex: 1;
+        min-height: 16em;
+        font-size: 18px;
+      }
+
+      #message {
+        min-height: 1.5em;
+        margin: 4px 0;
+        color: var(--accent);
+      }
+    </style>
   </head>
 
-  <body style="height: 90vh; display: flex; flex-flow: column; justify-content: center; align-items: center">
-    <p>↓に貼り付けた瞬間、テキストに付いている書式を削除し、書式なしのテキストをクリップボードにも書き戻します</p>
-    <label>
-      <input id="remove-tab" type="checkbox" checked />
-      タブ文字も削除する(Excel等の表を貼り付ける場合は外してください)
-    </label>
-    <p id="message" style="min-height: 1.5em; color: #2a7a4b"></p>
-    <textarea id="textarea" style="border-width: 2px; width: 90%; height: 90%; font-size: 20px"></textarea>
+  <body>
+    <div class="wrapper">
+      <h1>書式殺し</h1>
+      <section class="editor">
+        <p class="muted">
+          下の欄に貼り付けた瞬間、テキストに付いている書式を削除し、書式なしのテキストをクリップボードにも書き戻します。
+        </p>
+        <label>
+          <input id="remove-tab" type="checkbox" checked />
+          タブ文字も削除する(Excel等の表を貼り付ける場合は外してください)
+        </label>
+        <p id="message" role="status"></p>
+        <textarea id="textarea" placeholder="ここに貼り付け(Ctrl/⌘+V)"></textarea>
+      </section>
+    </div>
 
     <script type="module">
       const textarea = document.getElementById("textarea");
