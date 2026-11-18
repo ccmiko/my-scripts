@@ -64,6 +64,13 @@
       }
 
       /* まだ中身がない枠は表示しない */
+      @media (max-width: 600px), (max-height: 560px) {
+        .drop {
+          padding: 14px 12px;
+          font-size: 16px;
+        }
+      }
+
       section:has(> #status-container:empty),
       section:has(> #show-ocr-result-container:empty) {
         display: none;
@@ -73,7 +80,6 @@
 
   <body>
     <div class="wrapper">
-      <h1>画像から文字起こし隊</h1>
       <section>
         <label id="uploader-label" class="drop" for="uploader">
           <span id="uploader-elem">ここをクリックして画像を選ぶ</span>

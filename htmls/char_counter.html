@@ -16,6 +16,22 @@
         min-height: 14em;
       }
 
+      /* 小さな画面では、入力欄の下のカウントが見えるよう入力欄を低くする */
+      @media (max-width: 600px), (max-height: 560px) {
+        #text {
+          min-height: 6em;
+        }
+
+        .stats {
+          grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+          gap: 6px;
+        }
+
+        .stats dd {
+          font-size: 18px;
+        }
+      }
+
       .stats {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -55,14 +71,11 @@
 
   <body>
     <div class="wrapper">
-      <h1>文字数カウンタ</h1>
-
       <section>
         <textarea id="text" placeholder="ここに文章を入力・貼り付け"></textarea>
         <div class="row">
           <button id="clear" type="button">クリア</button>
           <span id="selection" class="muted"></span>
-          <span class="muted" style="margin-left: auto">入力内容はこのブラウザに自動保存されます</span>
         </div>
       </section>
 
@@ -80,10 +93,11 @@
           >
           <span id="limit-result"></span>
         </div>
-        <p class="muted">
-          X(旧Twitter)は全角を2、半角を1として280まで、原稿用紙は20字×20行(改行で次の行へ)として換算しています。
-        </p>
       </section>
+      <div class="usage">
+        <p>入力内容はこのブラウザに自動保存されます。</p>
+        <p>X(旧Twitter)は全角を2、半角を1として280まで、原稿用紙は20字×20行(改行で次の行へ)として換算しています。</p>
+      </div>
     </div>
 
     <script type="module">

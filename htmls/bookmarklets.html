@@ -12,10 +12,8 @@
     <script src="./common.js"></script>
     <link rel="stylesheet" href="./app.css" />
     <style>
-      .howto ol {
-        margin: 4px 0;
+      .howto ul {
         padding-left: 1.4em;
-        line-height: 1.8;
       }
 
       #list {
@@ -67,25 +65,23 @@
 
   <body>
     <div class="wrapper">
-      <h1>ブックマークレット</h1>
-
-      <section class="howto">
-        <h2>登録のしかた</h2>
-        <ol>
-          <li><strong>パソコン</strong>: 緑の点線のボタンを、ブラウザのブックマークバーへドラッグ＆ドロップする。</li>
-          <li>
-            <strong>スマホ</strong>: このページを一度ブックマークし、そのブックマークを編集して、URL
-            を「URLをコピー」でコピーしたものに書き換える。
-          </li>
-        </ol>
-        <p class="muted">
-          使うときは、対象のページを開いた状態でブックマークを選びます。このページ上でボタンを押しても実行されません。
-        </p>
-      </section>
-
       <section>
         <ul id="list"></ul>
       </section>
+
+      <div class="usage howto">
+        <p><strong>登録のしかた</strong></p>
+        <ul>
+          <li>パソコン: 緑の点線のボタンを、ブラウザのブックマークバーへドラッグ＆ドロップする。</li>
+          <li>
+            スマホ: このページを一度ブックマークし、そのブックマークを編集して、URL
+            を「URLをコピー」でコピーしたものに書き換える。
+          </li>
+        </ul>
+        <p>
+          使うときは、対象のページを開いた状態でブックマークを選びます。このページ上でボタンを押しても実行されません。
+        </p>
+      </div>
     </div>
 
     <!-- 一覧は scripts/build-bookmarklets.js が bookmarklet/*.js から生成する -->

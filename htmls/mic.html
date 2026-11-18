@@ -75,9 +75,7 @@
 
   <body>
     <div class="wrapper">
-      <h1>遅延再生くん</h1>
       <section>
-        <p class="muted">マイクの音を、指定した時間だけ遅らせてスピーカーから流します(発声・楽器練習の確認用)。</p>
         <div class="row">
           <button id="record-button" type="button" class="primary">開始</button>
           <button id="stop-button" type="button" disabled>停止</button>
@@ -111,6 +109,9 @@
           </p>
         </div>
       </section>
+      <p class="usage">
+        使い方: マイクの音を、指定した時間だけ遅らせてスピーカーから流します(発声・楽器練習の確認用)。
+      </p>
     </div>
     <script type="module">
       const MAX_DELAY_SECONDS = 10;

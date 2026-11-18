@@ -14,7 +14,9 @@
     <style>
       .wrapper {
         max-width: 960px;
-        min-height: 100dvh;
+        /* ページ下部のテーマ切り替えボタンの分だけ控える */
+        min-height: calc(100dvh - 56px);
+        padding-bottom: 12px;
         display: flex;
         flex-direction: column;
       }
@@ -27,7 +29,7 @@
 
       #textarea {
         flex: 1;
-        min-height: 16em;
+        min-height: 8em;
         font-size: 18px;
       }
 
@@ -41,11 +43,7 @@
 
   <body>
     <div class="wrapper">
-      <h1>書式殺し</h1>
       <section class="editor">
-        <p class="muted">
-          下の欄に貼り付けた瞬間、テキストに付いている書式を削除し、書式なしのテキストをクリップボードにも書き戻します。
-        </p>
         <label>
           <input id="remove-tab" type="checkbox" checked />
           タブ文字も削除する(Excel等の表を貼り付ける場合は外してください)
@@ -53,6 +51,10 @@
         <p id="message" role="status"></p>
         <textarea id="textarea" placeholder="ここに貼り付け(Ctrl/⌘+V)"></textarea>
       </section>
+      <p class="usage">
+        使い方:
+        上の欄に貼り付けた瞬間、テキストに付いている書式を削除し、書式なしのテキストをクリップボードにも書き戻します。
+      </p>
     </div>
 
     <script type="module">

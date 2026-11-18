@@ -44,6 +44,35 @@
         padding: 16px;
       }
 
+      .usage {
+        margin: 4px 4px 0;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      /* スマホ・小さなウィンドウでは余白を詰める */
+      @media (max-width: 600px), (max-height: 560px) {
+        .wrapper {
+          padding: 10px;
+        }
+
+        section {
+          padding: 10px 12px;
+          margin-bottom: 10px;
+        }
+
+        button.primary {
+          font-size: 18px;
+          padding: 10px 20px;
+        }
+      }
+
+      @media (pointer: coarse) {
+        button {
+          min-height: 40px;
+        }
+      }
+
       section {
         background: var(--card);
         border: 1px solid var(--border);
@@ -167,10 +196,10 @@
         <p class="buttons">
           <button id="export" type="button">全履歴をCSVで保存</button>
         </p>
-        <p class="muted">
-          記録はこのブラウザ内(localStorage)にだけ保存されます。最大 <span id="retention"></span> 日分を保持します。
-        </p>
       </section>
+      <p class="usage">
+        記録はこのブラウザ内(localStorage)にだけ保存されます。最大 <span id="retention"></span> 日分を保持します。
+      </p>
     </div>
 
     <script type="module">

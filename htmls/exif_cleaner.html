@@ -22,6 +22,12 @@
         margin: 0;
       }
 
+      @media (max-width: 600px), (max-height: 560px) {
+        .drop {
+          padding: 16px 12px;
+        }
+      }
+
       .drop:hover,
       body.dragging .drop {
         border-color: var(--accent);
@@ -82,8 +88,6 @@
 
   <body>
     <div class="wrapper">
-      <h1>写真の位置情報消し</h1>
-
       <section>
         <label class="drop" for="files">
           ここをクリックして写真を選ぶ(ドラッグ＆ドロップ・貼り付けも可)
@@ -117,10 +121,6 @@
             </select>
           </label>
         </div>
-        <p class="muted">
-          画像を描き直して保存するため、位置情報(GPS)・撮影日時・機種名などのメタデータはすべて消えます。
-          処理はこのブラウザ内だけで行い、画像はどこにも送信しません。
-        </p>
       </section>
 
       <section id="results-section" hidden>
@@ -131,6 +131,9 @@
         </div>
         <div id="results"></div>
       </section>
+      <p class="usage">
+        画像を描き直して保存するため、位置情報(GPS)・撮影日時・機種名などのメタデータはすべて消えます。処理はこのブラウザ内だけで行い、画像はどこにも送信しません。
+      </p>
     </div>
 
     <script type="module">
