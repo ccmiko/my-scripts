@@ -223,3 +223,6 @@ $RECYCLE.BIN/
 
 # 実際のアカウント情報はコミットしない(見本は htmls/account.sample.json)
 htmls/account.json
+
+# ブックマークレットの生成物は、GitHub上からコピーできるようコミットする
+!bookmarklet/dist/

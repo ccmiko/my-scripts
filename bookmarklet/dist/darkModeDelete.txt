@@ -1,0 +1,1 @@
+javascript:(()%20%3D%3E%20%7B%0Afunction%20main%20()%20%7B%0A%20%20id%20%3D%20%22AAAAAAAAAAA%22%0A%20%20document.getElementById(id)%3F.remove()%0A%7D%0Amain()%0A%7D)()%3B
