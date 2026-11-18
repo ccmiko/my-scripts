@@ -64,7 +64,19 @@
     }
     .mini-apps-theme-button:hover, .mini-apps-theme-button:focus-visible { opacity: 1; }
     .mini-apps-theme-button--inline { position: static; width: 30px; height: 30px; font-size: 16px; box-shadow: none; }
-    @media print { .mini-apps-theme-button { display: none; } }
+    .mini-apps-snackbar {
+      position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); z-index: 1001;
+      max-width: min(560px, calc(100vw - 32px)); padding: 10px 18px; border-radius: 10px;
+      background: #2b2d31; color: #ffffff; font: 500 15px/1.5 system-ui, -apple-system, "Hiragino Sans", sans-serif;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25); white-space: pre-wrap; text-align: center; pointer-events: none;
+      opacity: 0; transform: translate(-50%, 8px); transition: opacity 0.2s, transform 0.2s;
+    }
+    :root[data-theme="dark"] .mini-apps-snackbar {
+      background: #ececef; color: #16171a; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+    }
+    .mini-apps-snackbar.is-visible { opacity: 1; transform: translate(-50%, 0); }
+    @media (prefers-reduced-motion: reduce) { .mini-apps-snackbar { transition: none; } }
+    @media print { .mini-apps-theme-button, .mini-apps-snackbar { display: none; } }
   `;
   document.head.appendChild(themeStyle);
   applyTheme();
@@ -97,18 +109,30 @@
   if (document.body) addThemeButton();
   else document.addEventListener("DOMContentLoaded", addThemeButton);
 
-  const SNACK_BAR_STYLE =
-    "z-index: 1000; position: fixed; top: 0; left: 10px; " +
-    "width: fit-content; margin: 10px auto; padding: 6px; " +
-    "background-color: #E7F1ED; border-radius: 10px;";
-
-  /** 画面上部に短時間メッセージを表示する */
-  const showSnackBar = (msg, durationMs = 1000) => {
+  /**
+   * 画面下部の中央に短時間メッセージを表示する(スナックバー)。
+   * 背景はページと逆の色(ライト時は濃い灰色に白文字、ダーク時は明るい灰色に黒文字)にして、どちらのテーマでも読めるようにする。
+   * 連続で呼ばれた場合は前のメッセージを消して置き換える。
+   */
+  let currentSnackBar = null;
+  const showSnackBar = (msg, durationMs = 1600) => {
+    currentSnackBar?.remove();
     const elem = document.createElement("div");
-    elem.style.cssText = SNACK_BAR_STYLE;
+    elem.className = "mini-apps-snackbar";
+    elem.setAttribute("role", "status");
+    elem.setAttribute("aria-live", "polite");
     elem.textContent = msg;
     document.body.appendChild(elem);
-    setTimeout(() => elem.remove(), durationMs);
+    currentSnackBar = elem;
+    // 次のフレームで表示用のクラスを付けてフェードインさせる
+    requestAnimationFrame(() => requestAnimationFrame(() => elem.classList.add("is-visible")));
+    setTimeout(() => {
+      elem.classList.remove("is-visible");
+      setTimeout(() => {
+        elem.remove();
+        if (currentSnackBar === elem) currentSnackBar = null;
+      }, 200);
+    }, durationMs);
   };
 
   /** クリップボードにコピーし、結果をスナックバーで通知する */
