@@ -13,6 +13,15 @@
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
   <!-- テーマ(ダークモード)をちらつかせず適用するため、head で同期的に読み込む -->
   <script src="./common.js"></script>
+  <!-- CDN から import する ES Module の改ざんチェック(SRI)。対応ブラウザでは、ハッシュが一致しないと読み込まない -->
+  <script type="importmap">
+    {
+      "integrity": {
+        "https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.min.js": "sha384-Hd/aFZsVoQqDnKbAh+QZ9+4xbrYJWG78quvXteuXeB7FpE5/ZHxktY1UeF4r8jpU",
+        "https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner-worker.min.js": "sha384-irhTGf70Ryc7WyNLyAljPrpg7lTLXwg5QbYsw40uLuCdAa4ziKF5DVclab4C7uxc"
+      }
+    }
+  </script>
 </head>
 
 <body style="height: 90vh; display: flex; flex-flow: column; justify-content: center; align-items: center;">
