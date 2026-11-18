@@ -1,35 +1,27 @@
 /**
- * TODO: 課題がたくさん！
-    - display: contents要素はcolorが機能しない？
-    - 単純なテキストやリンクだけのサイトなら使えるが色々と不完全。。。。
-    - ページ跨いだ後に勝手に適用されるようにしたい
+ * ページ全体の色を反転させて簡易ダークモードにする。
+ * - 要素ごとに色を上書きする方式だと display: contents 要素や独自配色のサイトで崩れるため、
+ *   html 要素ごと filter で反転し、色相を180度戻して色味をなるべく保つ
+ * - 画像・動画・canvas 等は二重に反転させて元の見た目に戻す
+ * - 背景色が未指定(透明)のページでも暗くなるよう、html に白背景を指定してから反転する
+ * 解除は darkModeDelete を使う。
  */
-
 function main() {
+  const id = "my-scripts-dark-mode";
   const styles = `
-  * {
-  background-color: #202124 !important;
-  color: #A9ACAF !important;
-  }
-  a, a * {
-    color: #00bbf0 !important;
-    text-decoration:underline  !important;
-  }
-  button, button * {
-    background-color: #cdcdcd !important;
-    color:#1b1b1b !important;
-    text-decoration:underline  !important;
-    border: 1px solid !important;
-  }
-  svg {
-    fill: #f1b963 !important;
-  }
+    html {
+      background-color: #fff !important;
+      filter: invert(0.9) hue-rotate(180deg) !important;
+    }
+    img, video, picture, canvas, iframe, svg image,
+    [style*="background-image"] {
+      filter: invert(1) hue-rotate(180deg) !important;
+    }
   `;
+  document.getElementById(id)?.remove();
   const styleSheet = document.createElement("style");
-  const id = "AAAAAAAAAAA";
   styleSheet.id = id;
   styleSheet.textContent = styles;
-  document.getElementById(id)?.remove();
   document.head.appendChild(styleSheet);
 }
 main();
