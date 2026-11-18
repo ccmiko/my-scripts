@@ -11,3 +11,9 @@
 - 公開用のファイルは `node scripts/build-pages.js` で作る。行末に `// @local-only` を付けた行は公開版から削除される
 - アプリを追加・削除したら `htmls/sw.js` の `APP_FILES` と `CACHE_VERSION` を更新する
 
+## 開発
+
+```shell
+npm install          # 初回のみ(Prettier を入れる)
+npm run format       # 書式をそろえる(CI では npm run format:check 相当を実行)
+```

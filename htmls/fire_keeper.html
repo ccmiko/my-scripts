@@ -1,241 +1,239 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>火継</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="theme-color" content="#2f9e44" />
+    <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+    <!-- テーマ(ダークモード)をちらつかせず適用するため、head で同期的に読み込む -->
+    <script src="./common.js"></script>
+  </head>
 
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>火継</title>
-  <link rel="manifest" href="./manifest.webmanifest" />
-  <meta name="theme-color" content="#2f9e44" />
-  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
-  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
-  <!-- テーマ(ダークモード)をちらつかせず適用するため、head で同期的に読み込む -->
-  <script src="./common.js"></script>
-</head>
+  <body>
+    <main>
+      <div class="button-wrapper">
+        <button id="lock-button" value="true">ロックする</button>
+        <p>
+          スペースキー押下でもロックできます。ロック中はESCキーで解除できます。ロック解除時は音が鳴ります(音量は下のスライダーで調整できます)。
+        </p>
+      </div>
+      <div class="text-wrapper">
+        <p>現在の状態: <span id="lock-status">未ロック</span></p>
+        <p>経過時間: <span id="lock-elapsed-time">00:00:00</span></p>
+        <p id="description" style="display: none"></p>
+      </div>
+      <div class="volume-wrapper">
+        <label>
+          解除音の音量: <span id="volume-value">100</span>%
+          <input id="volume-input" type="range" min="0" max="100" step="1" value="100" />
+        </label>
+        <button id="volume-test-button" type="button">試聴</button>
+      </div>
+    </main>
 
-<body>
-  <main>
-    <div class="button-wrapper">
-      <button id="lock-button" value="true">ロックする</button>
-      <p>スペースキー押下でもロックできます。ロック中はESCキーで解除できます。ロック解除時は音が鳴ります(音量は下のスライダーで調整できます)。</p>
-    </div>
-    <div class="text-wrapper">
-      <p>現在の状態: <span id="lock-status">未ロック</span></p>
-      <p>経過時間: <span id="lock-elapsed-time">00:00:00</span></p>
-      <p id="description" style="display: none;"></p>
-    </div>
-    <div class="volume-wrapper">
-      <label>
-        解除音の音量: <span id="volume-value">100</span>%
-        <input id="volume-input" type="range" min="0" max="100" step="1" value="100">
-      </label>
-      <button id="volume-test-button" type="button">試聴</button>
-    </div>
-  </main>
+    <script type="module">
+      const state = {
+        /** WakeLockSentinel。タブ非表示等でブラウザに解除されると null になる */
+        wakeLock: null,
+        /** ロック開始時刻(ms)。未ロック時は null */
+        startAt: null,
+        /** 自動解除時刻(ms)。未ロック時は null */
+        endAt: null,
+        autoUnlockTimerId: null,
+        tickTimerId: null,
+      };
 
-  <script type="module">
-    const state = {
-      /** WakeLockSentinel。タブ非表示等でブラウザに解除されると null になる */
-      wakeLock: null,
-      /** ロック開始時刻(ms)。未ロック時は null */
-      startAt: null,
-      /** 自動解除時刻(ms)。未ロック時は null */
-      endAt: null,
-      autoUnlockTimerId: null,
-      tickTimerId: null,
-    };
+      const elems = {
+        button: document.getElementById("lock-button"),
+        status: document.getElementById("lock-status"),
+        elapsed: document.getElementById("lock-elapsed-time"),
+        description: document.getElementById("description"),
+        volumeInput: document.getElementById("volume-input"),
+        volumeValue: document.getElementById("volume-value"),
+        volumeTestButton: document.getElementById("volume-test-button"),
+      };
 
-    const elems = {
-      button: document.getElementById("lock-button"),
-      status: document.getElementById("lock-status"),
-      elapsed: document.getElementById("lock-elapsed-time"),
-      description: document.getElementById("description"),
-      volumeInput: document.getElementById("volume-input"),
-      volumeValue: document.getElementById("volume-value"),
-      volumeTestButton: document.getElementById("volume-test-button"),
-    };
+      /** 解除音の音量(0〜100)を保存する localStorage のキー */
+      const VOLUME_STORAGE_KEY = "FIRE_KEEPER_VOLUME";
 
-    /** 解除音の音量(0〜100)を保存する localStorage のキー */
-    const VOLUME_STORAGE_KEY = "FIRE_KEEPER_VOLUME";
+      const getVolumePercent = () => Number(elems.volumeInput.value);
 
-    const getVolumePercent = () => Number(elems.volumeInput.value);
-
-    const loadVolume = () => {
-      try {
-        const saved = window.localStorage.getItem(VOLUME_STORAGE_KEY);
-        const volume = Number(saved);
-        if (saved !== null && Number.isFinite(volume) && volume >= 0 && volume <= 100) {
-          elems.volumeInput.value = String(volume);
+      const loadVolume = () => {
+        try {
+          const saved = window.localStorage.getItem(VOLUME_STORAGE_KEY);
+          const volume = Number(saved);
+          if (saved !== null && Number.isFinite(volume) && volume >= 0 && volume <= 100) {
+            elems.volumeInput.value = String(volume);
+          }
+        } catch (error) {
+          console.error(error);
         }
-      } catch (error) {
-        console.error(error);
+        elems.volumeValue.textContent = String(getVolumePercent());
+      };
+
+      const saveVolume = () => {
+        try {
+          window.localStorage.setItem(VOLUME_STORAGE_KEY, String(getVolumePercent()));
+        } catch (error) {
+          console.error(error);
+        }
+      };
+
+      const isLocked = () => state.endAt !== null;
+
+      const showDescription = (text) => {
+        elems.description.textContent = text;
+        elems.description.style.display = "inline";
+      };
+
+      const formatElapsed = (ms) => {
+        const totalSeconds = Math.floor(ms / 1000);
+        const pad = (n) => String(n).padStart(2, "0");
+        // 24時間を超えても時は繰り上げずにそのまま表示する
+        return `${pad(Math.floor(totalSeconds / 3600))}:${pad(Math.floor(totalSeconds / 60) % 60)}:${pad(totalSeconds % 60)}`;
+      };
+
+      const updateElapsed = () => {
+        elems.elapsed.textContent = isLocked() ? formatElapsed(Date.now() - state.startAt) : "00:00:00";
+      };
+
+      /** Wake Lock を取得する。タブ非表示でブラウザに解除された場合は、表示復帰時に再取得する */
+      async function acquireWakeLock() {
+        const sentinel = await navigator.wakeLock.request("screen");
+        state.wakeLock = sentinel;
+        elems.status.textContent = "ロック中";
+        sentinel.addEventListener("release", () => {
+          if (state.wakeLock === sentinel) {
+            state.wakeLock = null;
+          }
+          if (isLocked()) {
+            elems.status.textContent = "一時解除中(タブに戻ると再ロックします)";
+          }
+        });
       }
-      elems.volumeValue.textContent = String(getVolumePercent());
-    };
 
-    const saveVolume = () => {
-      try {
-        window.localStorage.setItem(VOLUME_STORAGE_KEY, String(getVolumePercent()));
-      } catch (error) {
-        console.error(error);
+      async function lock(minutes) {
+        state.startAt = Date.now();
+        state.endAt = state.startAt + minutes * 60 * 1000;
+        try {
+          await acquireWakeLock();
+        } catch (error) {
+          state.startAt = null;
+          state.endAt = null;
+          throw error;
+        }
+        elems.button.textContent = "解除する";
+        showDescription(`${minutes}分経過すると自動でロックを解除します`);
+        state.autoUnlockTimerId = setTimeout(unlock, state.endAt - state.startAt);
+        state.tickTimerId = setInterval(updateElapsed, 1000);
       }
-    };
 
-    const isLocked = () => state.endAt !== null;
-
-    const showDescription = (text) => {
-      elems.description.textContent = text;
-      elems.description.style.display = "inline";
-    };
-
-    const formatElapsed = (ms) => {
-      const totalSeconds = Math.floor(ms / 1000);
-      const pad = (n) => String(n).padStart(2, "0");
-      // 24時間を超えても時は繰り上げずにそのまま表示する
-      return `${pad(Math.floor(totalSeconds / 3600))}:${pad(Math.floor(totalSeconds / 60) % 60)}:${pad(totalSeconds % 60)}`;
-    };
-
-    const updateElapsed = () => {
-      elems.elapsed.textContent = isLocked()
-        ? formatElapsed(Date.now() - state.startAt)
-        : "00:00:00";
-    };
-
-    /** Wake Lock を取得する。タブ非表示でブラウザに解除された場合は、表示復帰時に再取得する */
-    async function acquireWakeLock() {
-      const sentinel = await navigator.wakeLock.request("screen");
-      state.wakeLock = sentinel;
-      elems.status.textContent = "ロック中";
-      sentinel.addEventListener("release", () => {
-        if (state.wakeLock === sentinel) {
-          state.wakeLock = null;
+      async function unlock() {
+        if (!isLocked()) {
+          return;
         }
-        if (isLocked()) {
-          elems.status.textContent = "一時解除中(タブに戻ると再ロックします)";
-        }
-      });
-    }
-
-    async function lock(minutes) {
-      state.startAt = Date.now();
-      state.endAt = state.startAt + minutes * 60 * 1000;
-      try {
-        await acquireWakeLock();
-      } catch (error) {
+        clearTimeout(state.autoUnlockTimerId);
+        clearInterval(state.tickTimerId);
+        state.autoUnlockTimerId = null;
+        state.tickTimerId = null;
         state.startAt = null;
         state.endAt = null;
-        throw error;
+
+        const sentinel = state.wakeLock;
+        state.wakeLock = null;
+        await sentinel?.release();
+
+        elems.button.textContent = "ロックする";
+        elems.status.textContent = "未ロック";
+        showDescription("ロックが解除されました");
+        updateElapsed();
+        playUnlockSound();
       }
-      elems.button.textContent = "解除する";
-      showDescription(`${minutes}分経過すると自動でロックを解除します`);
-      state.autoUnlockTimerId = setTimeout(unlock, state.endAt - state.startAt);
-      state.tickTimerId = setInterval(updateElapsed, 1000);
-    }
 
-    async function unlock() {
-      if (!isLocked()) {
-        return;
+      // ロック解除の効果音(共通処理 common.js)
+      function playUnlockSound() {
+        window.MiniApps.playChime(getVolumePercent() / 100);
       }
-      clearTimeout(state.autoUnlockTimerId);
-      clearInterval(state.tickTimerId);
-      state.autoUnlockTimerId = null;
-      state.tickTimerId = null;
-      state.startAt = null;
-      state.endAt = null;
 
-      const sentinel = state.wakeLock;
-      state.wakeLock = null;
-      await sentinel?.release();
-
-      elems.button.textContent = "ロックする";
-      elems.status.textContent = "未ロック";
-      showDescription("ロックが解除されました");
-      updateElapsed();
-      playUnlockSound();
-    }
-
-    // ロック解除の効果音(共通処理 common.js)
-    function playUnlockSound() {
-      window.MiniApps.playChime(getVolumePercent() / 100);
-    }
-
-    /** 正の数値以外(キャンセル・空・0・負数・数値以外)は null を返す */
-    const parseMinutes = (input) => {
-      if (input === null || input.trim() === "") {
-        return null;
-      }
-      const minutes = Number(input);
-      return Number.isFinite(minutes) && minutes > 0 ? minutes : null;
-    };
-
-    async function handleButtonClick() {
-      elems.button.disabled = true;
-      try {
-        if (isLocked()) {
-          await unlock();
-          return;
+      /** 正の数値以外(キャンセル・空・0・負数・数値以外)は null を返す */
+      const parseMinutes = (input) => {
+        if (input === null || input.trim() === "") {
+          return null;
         }
-        const minutes = parseMinutes(window.prompt("何分ロックしますか？", 60));
-        if (minutes === null) {
-          showDescription("設定をキャンセルしました(正の数値を入力してください)");
-          return;
-        }
-        await lock(minutes);
-      } catch (error) {
-        window.alert(`エラー。 ${error.name}, ${error.message}`);
-      } finally {
-        elems.button.disabled = false;
-      }
-    }
+        const minutes = Number(input);
+        return Number.isFinite(minutes) && minutes > 0 ? minutes : null;
+      };
 
-    function init() {
-      // 音量設定は Wake Lock が使えない環境でも操作できるようにする
-      loadVolume();
-      elems.volumeInput.addEventListener("input", () => {
-        elems.volumeValue.textContent = String(getVolumePercent());
-      });
-      elems.volumeInput.addEventListener("change", saveVolume);
-      elems.volumeTestButton.addEventListener("click", playUnlockSound);
-
-      if (!("wakeLock" in navigator)) {
+      async function handleButtonClick() {
         elems.button.disabled = true;
-        showDescription("このブラウザ(または非HTTPS環境)では Wake Lock API が使えません");
-        return;
+        try {
+          if (isLocked()) {
+            await unlock();
+            return;
+          }
+          const minutes = parseMinutes(window.prompt("何分ロックしますか？", 60));
+          if (minutes === null) {
+            showDescription("設定をキャンセルしました(正の数値を入力してください)");
+            return;
+          }
+          await lock(minutes);
+        } catch (error) {
+          window.alert(`エラー。 ${error.name}, ${error.message}`);
+        } finally {
+          elems.button.disabled = false;
+        }
       }
-      elems.button.addEventListener("click", handleButtonClick);
 
-      window.addEventListener("keydown", (event) => {
-        if (event.key === " ") {
-          // ボタンにフォーカスがあるときのクリック発火・スクロールを防ぐ
-          event.preventDefault();
-          if (!event.repeat && !isLocked()) {
+      function init() {
+        // 音量設定は Wake Lock が使えない環境でも操作できるようにする
+        loadVolume();
+        elems.volumeInput.addEventListener("input", () => {
+          elems.volumeValue.textContent = String(getVolumePercent());
+        });
+        elems.volumeInput.addEventListener("change", saveVolume);
+        elems.volumeTestButton.addEventListener("click", playUnlockSound);
+
+        if (!("wakeLock" in navigator)) {
+          elems.button.disabled = true;
+          showDescription("このブラウザ(または非HTTPS環境)では Wake Lock API が使えません");
+          return;
+        }
+        elems.button.addEventListener("click", handleButtonClick);
+
+        window.addEventListener("keydown", (event) => {
+          if (event.key === " ") {
+            // ボタンにフォーカスがあるときのクリック発火・スクロールを防ぐ
+            event.preventDefault();
+            if (!event.repeat && !isLocked()) {
+              handleButtonClick();
+            }
+          } else if (event.key === "Escape" && isLocked()) {
             handleButtonClick();
           }
-        } else if (event.key === "Escape" && isLocked()) {
-          handleButtonClick();
-        }
-      });
-      // スペースキーによるボタンのクリックは keyup で発火するため、こちらも抑止する
-      window.addEventListener("keyup", (event) => {
-        if (event.key === " ") {
-          event.preventDefault();
-        }
-      });
-
-      // タブ非表示でブラウザに解除された Wake Lock を、表示復帰時に取り直す
-      document.addEventListener("visibilitychange", async () => {
-        if (document.visibilityState === "visible" && isLocked() && !state.wakeLock) {
-          try {
-            await acquireWakeLock();
-          } catch (error) {
-            console.error(error);
+        });
+        // スペースキーによるボタンのクリックは keyup で発火するため、こちらも抑止する
+        window.addEventListener("keyup", (event) => {
+          if (event.key === " ") {
+            event.preventDefault();
           }
-        }
-      });
-    }
+        });
 
-    init();
-  </script>
-</body>
+        // タブ非表示でブラウザに解除された Wake Lock を、表示復帰時に取り直す
+        document.addEventListener("visibilitychange", async () => {
+          if (document.visibilityState === "visible" && isLocked() && !state.wakeLock) {
+            try {
+              await acquireWakeLock();
+            } catch (error) {
+              console.error(error);
+            }
+          }
+        });
+      }
 
+      init();
+    </script>
+  </body>
 </html>

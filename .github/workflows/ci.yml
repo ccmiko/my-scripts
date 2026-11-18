@@ -1,0 +1,35 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    name: 書式チェック(Prettier)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: npm ci --ignore-scripts
+      - run: npx prettier --check .
+
+  generated:
+    name: 生成物が最新か
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: ブックマークレットの dist が最新か
+        run: node scripts/build-bookmarklets.js --check
+      - name: ブックマークレットの構文チェック
+        run: |
+          for f in bookmarklet/dist/*.txt; do
+            node -e 'const s = require("fs").readFileSync(process.argv[1], "utf8").trim(); new Function(decodeURIComponent(s.slice("javascript:".length)));' "$f"
+          done

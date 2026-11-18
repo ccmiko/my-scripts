@@ -13,10 +13,14 @@ const showFloatingInput = ({ placeholder, value = "", onSubmit }) => {
   inputElem.style.cssText = FLOATING_STYLE;
   inputElem.placeholder = placeholder;
   inputElem.value = value;
-  inputElem.addEventListener("change", () => {
-    inputElem.remove();
-    onSubmit(inputElem.value);
-  }, { once: true });
+  inputElem.addEventListener(
+    "change",
+    () => {
+      inputElem.remove();
+      onSubmit(inputElem.value);
+    },
+    { once: true },
+  );
   inputElem.addEventListener("keydown", (event) => {
     if (event.key === "Escape") inputElem.remove();
   });

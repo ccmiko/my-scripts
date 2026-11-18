@@ -30,6 +30,10 @@ function main() {
     input.type = "text";
     input.setAttribute(MARK, "");
   });
-  showToast(targets.length > 0 ? `${targets.length}個の入力欄を表示しました(もう一度実行で戻す)` : "パスワード入力欄が見つかりませんでした");
+  showToast(
+    targets.length > 0
+      ? `${targets.length}個の入力欄を表示しました(もう一度実行で戻す)`
+      : "パスワード入力欄が見つかりませんでした",
+  );
 }
 main();

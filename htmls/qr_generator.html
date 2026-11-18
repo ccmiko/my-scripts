@@ -1,203 +1,216 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QRコード生成</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="theme-color" content="#2f9e44" />
+    <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+    <!-- テーマ(ダークモード)をちらつかせず適用するため、head で同期的に読み込む -->
+    <script src="./common.js"></script>
+    <link rel="stylesheet" href="./app.css" />
+    <script
+      src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"
+      integrity="sha384-8FWZA6BGMXhsfO+BLtrJK0We6gg5o1JyO8xQm6peWDEUs17ACA5ziE/NIAkl9z2k"
+      crossorigin="anonymous"
+    ></script>
+    <style>
+      .tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
 
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>QRコード生成</title>
-  <link rel="manifest" href="./manifest.webmanifest" />
-  <meta name="theme-color" content="#2f9e44" />
-  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
-  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
-  <!-- テーマ(ダークモード)をちらつかせず適用するため、head で同期的に読み込む -->
-  <script src="./common.js"></script>
-  <link rel="stylesheet" href="./app.css" />
-  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js" integrity="sha384-8FWZA6BGMXhsfO+BLtrJK0We6gg5o1JyO8xQm6peWDEUs17ACA5ziE/NIAkl9z2k" crossorigin="anonymous"></script>
-  <style>
-    .tabs {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 12px;
-    }
+      .tabs button[aria-selected="true"] {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--accent-fg);
+      }
 
-    .tabs button[aria-selected="true"] {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: var(--accent-fg);
-    }
+      .preview {
+        text-align: center;
+      }
 
-    .preview {
-      text-align: center;
-    }
+      #canvas {
+        max-width: 100%;
+        height: auto;
+        image-rendering: pixelated;
+        /* ダークモードでも読み取れるよう、QR自体は常に白背景にする */
+        background: #fff;
+        border-radius: 8px;
+      }
+    </style>
+  </head>
 
-    #canvas {
-      max-width: 100%;
-      height: auto;
-      image-rendering: pixelated;
-      /* ダークモードでも読み取れるよう、QR自体は常に白背景にする */
-      background: #fff;
-      border-radius: 8px;
-    }
-  </style>
-</head>
+  <body>
+    <div class="wrapper">
+      <h1>QRコード生成</h1>
 
-<body>
-  <div class="wrapper">
-    <h1>QRコード生成</h1>
+      <section>
+        <div class="tabs" role="tablist">
+          <button type="button" role="tab" data-mode="text" aria-selected="true">テキスト・URL</button>
+          <button type="button" role="tab" data-mode="wifi" aria-selected="false">Wi-Fi</button>
+        </div>
 
-    <section>
-      <div class="tabs" role="tablist">
-        <button type="button" role="tab" data-mode="text" aria-selected="true">テキスト・URL</button>
-        <button type="button" role="tab" data-mode="wifi" aria-selected="false">Wi-Fi</button>
-      </div>
+        <div id="mode-text">
+          <label
+            >内容
+            <textarea id="text" placeholder="https://example.com や任意のテキスト"></textarea>
+          </label>
+        </div>
 
-      <div id="mode-text">
-        <label>内容
-          <textarea id="text" placeholder="https://example.com や任意のテキスト"></textarea>
-        </label>
-      </div>
+        <div id="mode-wifi" hidden>
+          <label>ネットワーク名(SSID) <input id="wifi-ssid" type="text" autocomplete="off" /></label>
+          <label>パスワード <input id="wifi-password" type="text" autocomplete="off" /></label>
+          <div class="row">
+            <label
+              >暗号化
+              <select id="wifi-auth">
+                <option value="WPA">WPA/WPA2/WPA3</option>
+                <option value="WEP">WEP</option>
+                <option value="nopass">なし</option>
+              </select>
+            </label>
+            <label><input id="wifi-hidden" type="checkbox" /> ステルス(非公開)ネットワーク</label>
+          </div>
+          <p class="muted">スマホのカメラで読み取ると、そのまま Wi-Fi に接続できます。</p>
+        </div>
 
-      <div id="mode-wifi" hidden>
-        <label>ネットワーク名(SSID) <input id="wifi-ssid" type="text" autocomplete="off" /></label>
-        <label>パスワード <input id="wifi-password" type="text" autocomplete="off" /></label>
         <div class="row">
-          <label>暗号化
-            <select id="wifi-auth">
-              <option value="WPA">WPA/WPA2/WPA3</option>
-              <option value="WEP">WEP</option>
-              <option value="nopass">なし</option>
+          <label
+            >誤り訂正
+            <select id="ecc">
+              <option value="L">L(7%)</option>
+              <option value="M" selected>M(15%)</option>
+              <option value="Q">Q(25%)</option>
+              <option value="H">H(30%)</option>
             </select>
           </label>
-          <label><input id="wifi-hidden" type="checkbox" /> ステルス(非公開)ネットワーク</label>
+          <label
+            >サイズ
+            <select id="size">
+              <option value="4">小</option>
+              <option value="8" selected>中</option>
+              <option value="12">大</option>
+            </select>
+          </label>
         </div>
-        <p class="muted">スマホのカメラで読み取ると、そのまま Wi-Fi に接続できます。</p>
-      </div>
+      </section>
 
-      <div class="row">
-        <label>誤り訂正
-          <select id="ecc">
-            <option value="L">L(7%)</option>
-            <option value="M" selected>M(15%)</option>
-            <option value="Q">Q(25%)</option>
-            <option value="H">H(30%)</option>
-          </select>
-        </label>
-        <label>サイズ
-          <select id="size">
-            <option value="4">小</option>
-            <option value="8" selected>中</option>
-            <option value="12">大</option>
-          </select>
-        </label>
-      </div>
-    </section>
+      <section class="preview">
+        <canvas id="canvas" width="0" height="0" aria-label="生成したQRコード"></canvas>
+        <p id="message" class="muted">内容を入力するとQRコードを生成します</p>
+        <div class="row" style="justify-content: center">
+          <button id="download" type="button" class="primary" disabled>PNGで保存</button>
+          <button id="copy" type="button" disabled>画像をコピー</button>
+        </div>
+      </section>
+    </div>
 
-    <section class="preview">
-      <canvas id="canvas" width="0" height="0" aria-label="生成したQRコード"></canvas>
-      <p id="message" class="muted">内容を入力するとQRコードを生成します</p>
-      <div class="row" style="justify-content: center;">
-        <button id="download" type="button" class="primary" disabled>PNGで保存</button>
-        <button id="copy" type="button" disabled>画像をコピー</button>
-      </div>
-    </section>
-  </div>
+    <script type="module">
+      // 日本語などを UTF-8 で埋め込む
+      qrcode.stringToBytes = qrcode.stringToBytesFuncs["UTF-8"];
 
-  <script type="module">
-    // 日本語などを UTF-8 で埋め込む
-    qrcode.stringToBytes = qrcode.stringToBytesFuncs["UTF-8"];
+      const $ = (id) => document.getElementById(id);
+      const canvas = $("canvas");
+      let mode = "text";
 
-    const $ = (id) => document.getElementById(id);
-    const canvas = $("canvas");
-    let mode = "text";
+      /** Wi-Fi 設定用の文字列(WIFI:T:WPA;S:ssid;P:pass;;)を組み立てる */
+      const escapeWifi = (value) => value.replace(/([\\;,:"])/g, "\\$1");
+      const buildWifiText = () => {
+        const ssid = $("wifi-ssid").value;
+        if (!ssid) return "";
+        const auth = $("wifi-auth").value;
+        const parts = [`T:${auth}`, `S:${escapeWifi(ssid)}`];
+        if (auth !== "nopass") parts.push(`P:${escapeWifi($("wifi-password").value)}`);
+        if ($("wifi-hidden").checked) parts.push("H:true");
+        return `WIFI:${parts.join(";")};;`;
+      };
 
-    /** Wi-Fi 設定用の文字列(WIFI:T:WPA;S:ssid;P:pass;;)を組み立てる */
-    const escapeWifi = (value) => value.replace(/([\\;,:"])/g, "\\$1");
-    const buildWifiText = () => {
-      const ssid = $("wifi-ssid").value;
-      if (!ssid) return "";
-      const auth = $("wifi-auth").value;
-      const parts = [`T:${auth}`, `S:${escapeWifi(ssid)}`];
-      if (auth !== "nopass") parts.push(`P:${escapeWifi($("wifi-password").value)}`);
-      if ($("wifi-hidden").checked) parts.push("H:true");
-      return `WIFI:${parts.join(";")};;`;
-    };
+      const getContent = () => (mode === "wifi" ? buildWifiText() : $("text").value);
 
-    const getContent = () => (mode === "wifi" ? buildWifiText() : $("text").value);
-
-    const render = () => {
-      const content = getContent();
-      const hasContent = content.length > 0;
-      $("download").disabled = $("copy").disabled = !hasContent;
-      if (!hasContent) {
-        canvas.width = canvas.height = 0;
-        $("message").textContent = "内容を入力するとQRコードを生成します";
-        return;
-      }
-      try {
-        // typeNumber 0 = 内容に合わせて自動でサイズを決める
-        const qr = qrcode(0, $("ecc").value);
-        qr.addData(content, "Byte");
-        qr.make();
-        const cellSize = Number($("size").value);
-        const margin = cellSize * 4;
-        const count = qr.getModuleCount();
-        const size = count * cellSize + margin * 2;
-        canvas.width = canvas.height = size;
-        const ctx = canvas.getContext("2d");
-        ctx.fillStyle = "#fff";
-        ctx.fillRect(0, 0, size, size);
-        ctx.fillStyle = "#000";
-        for (let row = 0; row < count; row++) {
-          for (let col = 0; col < count; col++) {
-            if (qr.isDark(row, col)) ctx.fillRect(margin + col * cellSize, margin + row * cellSize, cellSize, cellSize);
-          }
+      const render = () => {
+        const content = getContent();
+        const hasContent = content.length > 0;
+        $("download").disabled = $("copy").disabled = !hasContent;
+        if (!hasContent) {
+          canvas.width = canvas.height = 0;
+          $("message").textContent = "内容を入力するとQRコードを生成します";
+          return;
         }
-        $("message").textContent = `${new TextEncoder().encode(content).length} バイト / ${count}×${count} セル`;
-      } catch (error) {
-        console.error(error);
-        canvas.width = canvas.height = 0;
-        $("download").disabled = $("copy").disabled = true;
-        $("message").textContent = "内容が長すぎてQRコードにできません(誤り訂正レベルを下げると入る場合があります)";
-      }
-    };
+        try {
+          // typeNumber 0 = 内容に合わせて自動でサイズを決める
+          const qr = qrcode(0, $("ecc").value);
+          qr.addData(content, "Byte");
+          qr.make();
+          const cellSize = Number($("size").value);
+          const margin = cellSize * 4;
+          const count = qr.getModuleCount();
+          const size = count * cellSize + margin * 2;
+          canvas.width = canvas.height = size;
+          const ctx = canvas.getContext("2d");
+          ctx.fillStyle = "#fff";
+          ctx.fillRect(0, 0, size, size);
+          ctx.fillStyle = "#000";
+          for (let row = 0; row < count; row++) {
+            for (let col = 0; col < count; col++) {
+              if (qr.isDark(row, col))
+                ctx.fillRect(margin + col * cellSize, margin + row * cellSize, cellSize, cellSize);
+            }
+          }
+          $("message").textContent = `${new TextEncoder().encode(content).length} バイト / ${count}×${count} セル`;
+        } catch (error) {
+          console.error(error);
+          canvas.width = canvas.height = 0;
+          $("download").disabled = $("copy").disabled = true;
+          $("message").textContent = "内容が長すぎてQRコードにできません(誤り訂正レベルを下げると入る場合があります)";
+        }
+      };
 
-    document.querySelectorAll(".tabs button").forEach((button) => {
-      button.addEventListener("click", () => {
-        mode = button.dataset.mode;
-        document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", String(b === button)));
-        $("mode-text").hidden = mode !== "text";
-        $("mode-wifi").hidden = mode !== "wifi";
+      document.querySelectorAll(".tabs button").forEach((button) => {
+        button.addEventListener("click", () => {
+          mode = button.dataset.mode;
+          document
+            .querySelectorAll(".tabs button")
+            .forEach((b) => b.setAttribute("aria-selected", String(b === button)));
+          $("mode-text").hidden = mode !== "text";
+          $("mode-wifi").hidden = mode !== "wifi";
+          render();
+        });
+      });
+      document.querySelectorAll("input, textarea, select").forEach((elem) => elem.addEventListener("input", render));
+      $("wifi-auth").addEventListener("change", () => {
+        $("wifi-password").disabled = $("wifi-auth").value === "nopass";
         render();
       });
-    });
-    document.querySelectorAll("input, textarea, select").forEach((elem) => elem.addEventListener("input", render));
-    $("wifi-auth").addEventListener("change", () => {
-      $("wifi-password").disabled = $("wifi-auth").value === "nopass";
+
+      $("download").addEventListener("click", () => {
+        const anchor = document.createElement("a");
+        anchor.href = canvas.toDataURL("image/png");
+        anchor.download =
+          mode === "wifi" ? `wifi_${$("wifi-ssid").value.replace(/[\\/:*?"<>|]/g, "_")}.png` : "qrcode.png";
+        anchor.click();
+      });
+      $("copy").addEventListener("click", async () => {
+        try {
+          const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+          await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+          window.MiniApps.showSnackBar("画像をコピーしました");
+        } catch (error) {
+          console.error(error);
+          window.MiniApps.showSnackBar(
+            "コピーに失敗しました(このブラウザは画像のコピーに未対応の可能性があります)",
+            2500,
+          );
+        }
+      });
+
+      // ?text=... で内容を渡して開けるようにする(ブックマーク等から使う用)
+      const initialText = new URLSearchParams(window.location.search).get("text");
+      if (initialText) $("text").value = initialText;
       render();
-    });
-
-    $("download").addEventListener("click", () => {
-      const anchor = document.createElement("a");
-      anchor.href = canvas.toDataURL("image/png");
-      anchor.download = mode === "wifi" ? `wifi_${$("wifi-ssid").value.replace(/[\\/:*?"<>|]/g, "_")}.png` : "qrcode.png";
-      anchor.click();
-    });
-    $("copy").addEventListener("click", async () => {
-      try {
-        const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
-        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-        window.MiniApps.showSnackBar("画像をコピーしました");
-      } catch (error) {
-        console.error(error);
-        window.MiniApps.showSnackBar("コピーに失敗しました(このブラウザは画像のコピーに未対応の可能性があります)", 2500);
-      }
-    });
-
-    // ?text=... で内容を渡して開けるようにする(ブックマーク等から使う用)
-    const initialText = new URLSearchParams(window.location.search).get("text");
-    if (initialText) $("text").value = initialText;
-    render();
-  </script>
-</body>
-
+    </script>
+  </body>
 </html>

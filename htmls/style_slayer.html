@@ -1,51 +1,49 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>書式殺し</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="theme-color" content="#2f9e44" />
+    <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+    <!-- テーマ(ダークモード)をちらつかせず適用するため、head で同期的に読み込む -->
+    <script src="./common.js"></script>
+  </head>
 
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>書式殺し</title>
-  <link rel="manifest" href="./manifest.webmanifest" />
-  <meta name="theme-color" content="#2f9e44" />
-  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
-  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
-  <!-- テーマ(ダークモード)をちらつかせず適用するため、head で同期的に読み込む -->
-  <script src="./common.js"></script>
-</head>
+  <body style="height: 90vh; display: flex; flex-flow: column; justify-content: center; align-items: center">
+    <p>↓に貼り付けた瞬間、テキストに付いている書式を削除し、書式なしのテキストをクリップボードにも書き戻します</p>
+    <label>
+      <input id="remove-tab" type="checkbox" checked />
+      タブ文字も削除する(Excel等の表を貼り付ける場合は外してください)
+    </label>
+    <p id="message" style="min-height: 1.5em; color: #2a7a4b"></p>
+    <textarea id="textarea" style="border-width: 2px; width: 90%; height: 90%; font-size: 20px"></textarea>
 
-<body style="height: 90vh; display: flex; flex-flow: column; justify-content: center; align-items: center;">
-  <p>↓に貼り付けた瞬間、テキストに付いている書式を削除し、書式なしのテキストをクリップボードにも書き戻します</p>
-  <label>
-    <input id="remove-tab" type="checkbox" checked>
-    タブ文字も削除する(Excel等の表を貼り付ける場合は外してください)
-  </label>
-  <p id="message" style="min-height: 1.5em; color: #2a7a4b;"></p>
-  <textarea id="textarea" style="border-width: 2px; width: 90%; height: 90%; font-size: 20px"></textarea>
+    <script type="module">
+      const textarea = document.getElementById("textarea");
+      const removeTabElem = document.getElementById("remove-tab");
+      const messageElem = document.getElementById("message");
 
-  <script type="module">
-    const textarea = document.getElementById("textarea");
-    const removeTabElem = document.getElementById("remove-tab");
-    const messageElem = document.getElementById("message");
+      const cleanText = (text) => {
+        const replaced = removeTabElem.checked ? text.replace(/\t/g, "") : text;
+        return replaced.trim();
+      };
 
-    const cleanText = (text) => {
-      const replaced = removeTabElem.checked ? text.replace(/\t/g, "") : text;
-      return replaced.trim();
-    };
-
-    textarea.addEventListener("paste", async (e) => {
-      // ブラウザ標準の貼り付けを止め、加工後のテキストを挿入する
-      e.preventDefault();
-      const text = cleanText(e.clipboardData.getData("text/plain"));
-      textarea.setRangeText(text, textarea.selectionStart, textarea.selectionEnd, "end");
-      try {
-        await navigator.clipboard.writeText(text);
-        messageElem.textContent = "書式なしのテキストをクリップボードに書き戻しました";
-      } catch (error) {
-        console.error(error);
-        messageElem.textContent = "クリップボードへの書き戻しに失敗しました";
-      }
-    });
-  </script>
-</body>
-
+      textarea.addEventListener("paste", async (e) => {
+        // ブラウザ標準の貼り付けを止め、加工後のテキストを挿入する
+        e.preventDefault();
+        const text = cleanText(e.clipboardData.getData("text/plain"));
+        textarea.setRangeText(text, textarea.selectionStart, textarea.selectionEnd, "end");
+        try {
+          await navigator.clipboard.writeText(text);
+          messageElem.textContent = "書式なしのテキストをクリップボードに書き戻しました";
+        } catch (error) {
+          console.error(error);
+          messageElem.textContent = "クリップボードへの書き戻しに失敗しました";
+        }
+      });
+    </script>
+  </body>
 </html>

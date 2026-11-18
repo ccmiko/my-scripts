@@ -36,12 +36,15 @@ const toBookmarklet = (source) => {
 };
 
 const checkOnly = process.argv.includes("--check");
-const files = fs.readdirSync(SRC_DIR).filter((file) => file.endsWith(".js")).sort();
+const files = fs
+  .readdirSync(SRC_DIR)
+  .filter((file) => file.endsWith(".js"))
+  .sort();
 const expected = new Map(
   files.map((file) => {
     const source = resolveIncludes(fs.readFileSync(path.join(SRC_DIR, file), "utf-8"), file);
     return [file.replace(/\.js$/, ".txt"), `${toBookmarklet(source)}\n`];
-  })
+  }),
 );
 
 if (checkOnly) {
@@ -55,7 +58,9 @@ if (checkOnly) {
   actualFiles.filter((name) => !expected.has(name)).forEach((name) => problems.push(`orphan: ${name}`));
   if (problems.length) {
     console.error(problems.join("\n"));
-    console.error("\nbookmarklet/dist が最新ではありません。`node scripts/build-bookmarklets.js` を実行してコミットしてください");
+    console.error(
+      "\nbookmarklet/dist が最新ではありません。`node scripts/build-bookmarklets.js` を実行してコミットしてください",
+    );
     process.exit(1);
   }
   console.info("bookmarklet/dist is up to date");

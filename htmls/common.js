@@ -275,7 +275,14 @@
   };
 
   window.MiniApps = {
-    showSnackBar, copyText, toHttpUrl, createQrResultElem, playChime, createWakeLockKeeper, getThemePreference, setTheme,
+    showSnackBar,
+    copyText,
+    toHttpUrl,
+    createQrResultElem,
+    playChime,
+    createWakeLockKeeper,
+    getThemePreference,
+    setTheme,
   };
 
   // ---------------------------------------------------------------- PWA

@@ -7,9 +7,36 @@
 function main() {
   /** 削除するクエリパラメータ(完全一致) */
   const TRACKING_PARAMS = new Set([
-    "fbclid", "gclid", "gclsrc", "dclid", "gbraid", "wbraid", "msclkid", "yclid", "twclid", "ttclid",
-    "igshid", "mc_cid", "mc_eid", "_ga", "_gl", "_hsenc", "_hsmi", "mkt_tok", "spm", "si",
-    "ref", "ref_", "ref_src", "ref_url", "cmpid", "srsltid", "s_kwcid", "vero_id", "oly_enc_id", "oly_anon_id",
+    "fbclid",
+    "gclid",
+    "gclsrc",
+    "dclid",
+    "gbraid",
+    "wbraid",
+    "msclkid",
+    "yclid",
+    "twclid",
+    "ttclid",
+    "igshid",
+    "mc_cid",
+    "mc_eid",
+    "_ga",
+    "_gl",
+    "_hsenc",
+    "_hsmi",
+    "mkt_tok",
+    "spm",
+    "si",
+    "ref",
+    "ref_",
+    "ref_src",
+    "ref_url",
+    "cmpid",
+    "srsltid",
+    "s_kwcid",
+    "vero_id",
+    "oly_enc_id",
+    "oly_anon_id",
   ]);
   /** 削除するクエリパラメータ(前方一致) */
   const TRACKING_PREFIXES = ["utm_", "pk_", "mtm_", "hsa_", "pd_rd_", "pf_rd_"];
@@ -42,6 +69,11 @@ function main() {
     }
   }
   const removed = before.length - after.length;
-  copyWithToast(after, removed > 0 ? `${removed}文字削って コピーしました\n${after}` : `削る部分はありませんでした。コピーしました\n${after}`);
+  copyWithToast(
+    after,
+    removed > 0
+      ? `${removed}文字削って コピーしました\n${after}`
+      : `削る部分はありませんでした。コピーしました\n${after}`,
+  );
 }
 main();

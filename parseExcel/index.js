@@ -43,7 +43,7 @@ function Excel() {
         typeof position === "number" ? _worksheets[position] : _worksheets.find((sheet) => sheet.name === position);
       if (!_currentSheet) {
         throw new Error(
-          `シート ${JSON.stringify(position)} が存在しません (シート: ${_worksheets.map((s) => s.name).join(", ")})`
+          `シート ${JSON.stringify(position)} が存在しません (シート: ${_worksheets.map((s) => s.name).join(", ")})`,
         );
       }
       if (_hasHeaders) {
@@ -56,11 +56,11 @@ function Excel() {
     },
     addHeader: (value, position) => {
       if (position !== undefined) {
-        _currentHeaders[position] = value
+        _currentHeaders[position] = value;
       } else {
-        _currentHeaders.push(value)
+        _currentHeaders.push(value);
       }
-      return self
+      return self;
     },
     getRows: function* () {
       const rowCount = _currentSheet.rowCount;

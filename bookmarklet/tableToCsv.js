@@ -78,7 +78,10 @@ function main() {
   });
   // ラベルを描画してから prompt を出す
   setTimeout(() => {
-    const answer = window.prompt(`表が${tables.length}個あります。保存する表の番号を入力してください(1〜${tables.length})`, "1");
+    const answer = window.prompt(
+      `表が${tables.length}個あります。保存する表の番号を入力してください(1〜${tables.length})`,
+      "1",
+    );
     markers.forEach((clear) => clear());
     if (answer === null) return;
     const index = Number(answer) - 1;

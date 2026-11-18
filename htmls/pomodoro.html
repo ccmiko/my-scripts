@@ -1,366 +1,384 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ポモドーロ</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="theme-color" content="#2f9e44" />
+    <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+    <!-- テーマ(ダークモード)をちらつかせず適用するため、head で同期的に読み込む -->
+    <script src="./common.js"></script>
+    <link rel="stylesheet" href="./app.css" />
+    <style>
+      :root {
+        --work: #e8590c;
+        --break: #2f9e44;
+      }
 
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ポモドーロ</title>
-  <link rel="manifest" href="./manifest.webmanifest" />
-  <meta name="theme-color" content="#2f9e44" />
-  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
-  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
-  <!-- テーマ(ダークモード)をちらつかせず適用するため、head で同期的に読み込む -->
-  <script src="./common.js"></script>
-  <link rel="stylesheet" href="./app.css" />
-  <style>
-    :root {
-      --work: #e8590c;
-      --break: #2f9e44;
-    }
+      .timer {
+        text-align: center;
+      }
 
-    .timer {
-      text-align: center;
-    }
+      .ring {
+        position: relative;
+        width: min(280px, 80vw);
+        aspect-ratio: 1;
+        margin: 8px auto 16px;
+      }
 
-    .ring {
-      position: relative;
-      width: min(280px, 80vw);
-      aspect-ratio: 1;
-      margin: 8px auto 16px;
-    }
+      .ring svg {
+        width: 100%;
+        height: 100%;
+        transform: rotate(-90deg);
+      }
 
-    .ring svg {
-      width: 100%;
-      height: 100%;
-      transform: rotate(-90deg);
-    }
+      .ring circle {
+        fill: none;
+        stroke-width: 10;
+      }
 
-    .ring circle {
-      fill: none;
-      stroke-width: 10;
-    }
+      .ring .track {
+        stroke: var(--border);
+      }
 
-    .ring .track {
-      stroke: var(--border);
-    }
+      .ring .progress {
+        stroke: var(--phase-color, var(--work));
+        stroke-linecap: round;
+        transition: stroke-dashoffset 0.3s linear;
+      }
 
-    .ring .progress {
-      stroke: var(--phase-color, var(--work));
-      stroke-linecap: round;
-      transition: stroke-dashoffset 0.3s linear;
-    }
+      .ring .center {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
 
-    .ring .center {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-    }
+      #phase {
+        font-weight: bold;
+        color: var(--phase-color, var(--work));
+      }
 
-    #phase {
-      font-weight: bold;
-      color: var(--phase-color, var(--work));
-    }
+      #remaining {
+        font-size: 56px;
+        font-weight: bold;
+        font-variant-numeric: tabular-nums;
+        line-height: 1.1;
+      }
 
-    #remaining {
-      font-size: 56px;
-      font-weight: bold;
-      font-variant-numeric: tabular-nums;
-      line-height: 1.1;
-    }
+      .controls {
+        justify-content: center;
+      }
 
-    .controls {
-      justify-content: center;
-    }
+      .controls button {
+        min-width: 6em;
+        font-size: 17px;
+      }
 
-    .controls button {
-      min-width: 6em;
-      font-size: 17px;
-    }
+      #dots {
+        font-size: 20px;
+        letter-spacing: 4px;
+      }
 
-    #dots {
-      font-size: 20px;
-      letter-spacing: 4px;
-    }
+      .settings input[type="number"] {
+        width: 5em;
+      }
+    </style>
+  </head>
 
-    .settings input[type="number"] {
-      width: 5em;
-    }
-  </style>
-</head>
+  <body>
+    <div class="wrapper">
+      <h1>ポモドーロ</h1>
 
-<body>
-  <div class="wrapper">
-    <h1>ポモドーロ</h1>
-
-    <section class="timer">
-      <div class="ring">
-        <svg viewBox="0 0 120 120" aria-hidden="true">
-          <circle class="track" cx="60" cy="60" r="54" />
-          <circle id="progress" class="progress" cx="60" cy="60" r="54" />
-        </svg>
-        <div class="center">
-          <span id="phase">作業</span>
-          <span id="remaining">25:00</span>
-          <span id="dots" title="長い休憩までの進み具合"></span>
+      <section class="timer">
+        <div class="ring">
+          <svg viewBox="0 0 120 120" aria-hidden="true">
+            <circle class="track" cx="60" cy="60" r="54" />
+            <circle id="progress" class="progress" cx="60" cy="60" r="54" />
+          </svg>
+          <div class="center">
+            <span id="phase">作業</span>
+            <span id="remaining">25:00</span>
+            <span id="dots" title="長い休憩までの進み具合"></span>
+          </div>
         </div>
-      </div>
-      <div class="row controls">
-        <button id="start" type="button" class="primary">開始</button>
-        <button id="skip" type="button">スキップ</button>
-        <button id="reset" type="button">リセット</button>
-      </div>
-      <p id="status" class="muted">スペースキーで開始/一時停止</p>
-      <p>今日の完了: <strong id="today-count">0</strong> ポモドーロ</p>
-    </section>
+        <div class="row controls">
+          <button id="start" type="button" class="primary">開始</button>
+          <button id="skip" type="button">スキップ</button>
+          <button id="reset" type="button">リセット</button>
+        </div>
+        <p id="status" class="muted">スペースキーで開始/一時停止</p>
+        <p>今日の完了: <strong id="today-count">0</strong> ポモドーロ</p>
+      </section>
 
-    <section class="settings">
-      <h2>設定</h2>
-      <div class="row">
-        <label>作業 <input id="work-min" type="number" min="1" max="180" step="1" /> 分</label>
-        <label>休憩 <input id="short-min" type="number" min="1" max="60" step="1" /> 分</label>
-        <label>長い休憩 <input id="long-min" type="number" min="1" max="120" step="1" /> 分</label>
-        <label><input id="long-every" type="number" min="2" max="12" step="1" /> 回ごとに長い休憩</label>
-      </div>
-      <label><input id="auto-start" type="checkbox" /> 次のタイマーを自動で開始する</label>
-      <label><input id="keep-awake" type="checkbox" /> タイマー動作中は画面をスリープさせない</label>
-      <div class="row">
-        <label>通知音 <input id="volume" type="range" min="0" max="100" step="5" /></label>
-        <span id="volume-value"></span>%
-        <button id="volume-test" type="button">試聴</button>
-        <button id="notify-permission" type="button">デスクトップ通知を許可</button>
-      </div>
-    </section>
-  </div>
+      <section class="settings">
+        <h2>設定</h2>
+        <div class="row">
+          <label>作業 <input id="work-min" type="number" min="1" max="180" step="1" /> 分</label>
+          <label>休憩 <input id="short-min" type="number" min="1" max="60" step="1" /> 分</label>
+          <label>長い休憩 <input id="long-min" type="number" min="1" max="120" step="1" /> 分</label>
+          <label><input id="long-every" type="number" min="2" max="12" step="1" /> 回ごとに長い休憩</label>
+        </div>
+        <label><input id="auto-start" type="checkbox" /> 次のタイマーを自動で開始する</label>
+        <label><input id="keep-awake" type="checkbox" /> タイマー動作中は画面をスリープさせない</label>
+        <div class="row">
+          <label>通知音 <input id="volume" type="range" min="0" max="100" step="5" /></label>
+          <span id="volume-value"></span>%
+          <button id="volume-test" type="button">試聴</button>
+          <button id="notify-permission" type="button">デスクトップ通知を許可</button>
+        </div>
+      </section>
+    </div>
 
-  <script type="module">
-    const $ = (id) => document.getElementById(id);
-    const SETTINGS_KEY = "POMODORO_SETTINGS";
-    const COUNT_KEY = "POMODORO_COUNT";
-    const DEFAULT_SETTINGS = { workMin: 25, shortMin: 5, longMin: 15, longEvery: 4, autoStart: false, keepAwake: true, volume: 60 };
-    const PHASES = {
-      work: { label: "作業", color: "var(--work)", chime: [523.25, 659.25, 783.99, 1046.5] },
-      short: { label: "休憩", color: "var(--break)", chime: [1046.5, 783.99, 659.25, 523.25] },
-      long: { label: "長い休憩", color: "var(--break)", chime: [1046.5, 783.99, 659.25, 523.25, 392] },
-    };
-    const CIRCUMFERENCE = 2 * Math.PI * 54;
+    <script type="module">
+      const $ = (id) => document.getElementById(id);
+      const SETTINGS_KEY = "POMODORO_SETTINGS";
+      const COUNT_KEY = "POMODORO_COUNT";
+      const DEFAULT_SETTINGS = {
+        workMin: 25,
+        shortMin: 5,
+        longMin: 15,
+        longEvery: 4,
+        autoStart: false,
+        keepAwake: true,
+        volume: 60,
+      };
+      const PHASES = {
+        work: { label: "作業", color: "var(--work)", chime: [523.25, 659.25, 783.99, 1046.5] },
+        short: { label: "休憩", color: "var(--break)", chime: [1046.5, 783.99, 659.25, 523.25] },
+        long: { label: "長い休憩", color: "var(--break)", chime: [1046.5, 783.99, 659.25, 523.25, 392] },
+      };
+      const CIRCUMFERENCE = 2 * Math.PI * 54;
 
-    const readJson = (key) => {
-      try {
-        return JSON.parse(window.localStorage.getItem(key)) ?? null;
-      } catch {
-        return null;
-      }
-    };
-    const writeJson = (key, value) => {
-      try {
-        window.localStorage.setItem(key, JSON.stringify(value));
-      } catch (error) {
-        console.error(error);
-      }
-    };
-
-    const settings = { ...DEFAULT_SETTINGS, ...readJson(SETTINGS_KEY) };
-    const state = {
-      phase: "work",
-      /** 今のサイクルで完了した作業の数(長い休憩でリセット) */
-      cycleDone: 0,
-      running: false,
-      /** 動作中: 終了予定時刻(ms) */
-      endAt: null,
-      /** 一時停止中: 残り時間(ms) */
-      remainingMs: settings.workMin * 60000,
-      tickId: null,
-    };
-
-    const wakeLock = window.MiniApps.createWakeLockKeeper();
-
-    const phaseDurationMs = (phase) =>
-      ({ work: settings.workMin, short: settings.shortMin, long: settings.longMin })[phase] * 60000;
-
-    const todayKey = () => new Date().toLocaleDateString("sv-SE");
-    const getTodayCount = () => {
-      const saved = readJson(COUNT_KEY);
-      return saved?.day === todayKey() ? saved.count : 0;
-    };
-    const incrementTodayCount = () => writeJson(COUNT_KEY, { day: todayKey(), count: getTodayCount() + 1 });
-
-    const currentRemainingMs = () => (state.running ? Math.max(0, state.endAt - Date.now()) : state.remainingMs);
-
-    const formatMs = (ms) => {
-      const total = Math.ceil(ms / 1000);
-      return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
-    };
-
-    const render = () => {
-      const remaining = currentRemainingMs();
-      const phase = PHASES[state.phase];
-      document.documentElement.style.setProperty("--phase-color", phase.color);
-      $("phase").textContent = phase.label + (state.running ? "" : remaining < phaseDurationMs(state.phase) ? "(一時停止中)" : "");
-      $("remaining").textContent = formatMs(remaining);
-      const ratio = 1 - remaining / phaseDurationMs(state.phase);
-      $("progress").style.strokeDasharray = String(CIRCUMFERENCE);
-      $("progress").style.strokeDashoffset = String(CIRCUMFERENCE * (1 - Math.min(1, Math.max(0, ratio))));
-      $("dots").textContent = "●".repeat(state.cycleDone) + "○".repeat(Math.max(0, settings.longEvery - state.cycleDone));
-      $("start").textContent = state.running ? "一時停止" : "開始";
-      $("today-count").textContent = String(getTodayCount());
-      document.title = state.running ? `${formatMs(remaining)} ${phase.label} - ポモドーロ` : "ポモドーロ";
-    };
-
-    const updateWakeLock = async () => {
-      try {
-        if (state.running && settings.keepAwake && wakeLock.isSupported()) await wakeLock.enable();
-        else await wakeLock.disable();
-      } catch (error) {
-        console.error(error);
-      }
-    };
-
-    const notify = (title, body) => {
-      window.MiniApps.playChime(settings.volume / 100, PHASES[state.phase].chime);
-      if ("Notification" in window && Notification.permission === "granted" && document.visibilityState !== "visible") {
-        new Notification(title, { body, tag: "pomodoro" });
-      }
-    };
-
-    const start = () => {
-      if (state.running) return;
-      state.running = true;
-      state.endAt = Date.now() + state.remainingMs;
-      state.tickId = setInterval(tick, 250);
-      updateWakeLock();
-      render();
-    };
-
-    const pause = () => {
-      if (!state.running) return;
-      state.remainingMs = currentRemainingMs();
-      state.running = false;
-      clearInterval(state.tickId);
-      updateWakeLock();
-      render();
-    };
-
-    /** 次のフェーズへ進む。completed=false はスキップ(作業回数に数えない) */
-    const advance = (completed) => {
-      const wasRunning = state.running;
-      pause();
-      if (state.phase === "work") {
-        if (completed) incrementTodayCount();
-        state.cycleDone++;
-        state.phase = state.cycleDone >= settings.longEvery ? "long" : "short";
-      } else {
-        if (state.phase === "long") state.cycleDone = 0;
-        state.phase = "work";
-      }
-      state.remainingMs = phaseDurationMs(state.phase);
-      if (completed) {
-        const next = PHASES[state.phase].label;
-        notify(`${next}の時間です`, `${formatMs(state.remainingMs)} の${next}`);
-        $("status").textContent = `${new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })} ${next}になりました`;
-      }
-      if (settings.autoStart && (completed ? true : wasRunning)) start();
-      render();
-    };
-
-    const tick = () => {
-      if (currentRemainingMs() <= 0) advance(true);
-      else render();
-    };
-
-    const reset = () => {
-      pause();
-      state.phase = "work";
-      state.cycleDone = 0;
-      state.remainingMs = phaseDurationMs("work");
-      $("status").textContent = "スペースキーで開始/一時停止";
-      render();
-    };
-
-    // ---------------------------------------------------------------- 設定
-
-    const NUMBER_FIELDS = [
-      ["work-min", "workMin", 1, 180],
-      ["short-min", "shortMin", 1, 60],
-      ["long-min", "longMin", 1, 120],
-      ["long-every", "longEvery", 2, 12],
-    ];
-    NUMBER_FIELDS.forEach(([id, key, min, max]) => {
-      $(id).value = String(settings[key]);
-      $(id).addEventListener("change", () => {
-        const value = Number($(id).value);
-        settings[key] = Number.isInteger(value) && value >= min && value <= max ? value : DEFAULT_SETTINGS[key];
-        $(id).value = String(settings[key]);
-        writeJson(SETTINGS_KEY, settings);
-        render();
-      });
-    });
-    // 時間を変えたときは、止まっているタイマーを新しい長さで測り直す
-    ["work-min", "short-min", "long-min"].forEach((id) =>
-      $(id).addEventListener("change", () => {
-        if (!state.running) {
-          state.remainingMs = phaseDurationMs(state.phase);
-          render();
+      const readJson = (key) => {
+        try {
+          return JSON.parse(window.localStorage.getItem(key)) ?? null;
+        } catch {
+          return null;
         }
-      })
-    );
-    [["auto-start", "autoStart"], ["keep-awake", "keepAwake"]].forEach(([id, key]) => {
-      $(id).checked = settings[key];
-      $(id).addEventListener("change", () => {
-        settings[key] = $(id).checked;
-        writeJson(SETTINGS_KEY, settings);
+      };
+      const writeJson = (key, value) => {
+        try {
+          window.localStorage.setItem(key, JSON.stringify(value));
+        } catch (error) {
+          console.error(error);
+        }
+      };
+
+      const settings = { ...DEFAULT_SETTINGS, ...readJson(SETTINGS_KEY) };
+      const state = {
+        phase: "work",
+        /** 今のサイクルで完了した作業の数(長い休憩でリセット) */
+        cycleDone: 0,
+        running: false,
+        /** 動作中: 終了予定時刻(ms) */
+        endAt: null,
+        /** 一時停止中: 残り時間(ms) */
+        remainingMs: settings.workMin * 60000,
+        tickId: null,
+      };
+
+      const wakeLock = window.MiniApps.createWakeLockKeeper();
+
+      const phaseDurationMs = (phase) =>
+        ({ work: settings.workMin, short: settings.shortMin, long: settings.longMin })[phase] * 60000;
+
+      const todayKey = () => new Date().toLocaleDateString("sv-SE");
+      const getTodayCount = () => {
+        const saved = readJson(COUNT_KEY);
+        return saved?.day === todayKey() ? saved.count : 0;
+      };
+      const incrementTodayCount = () => writeJson(COUNT_KEY, { day: todayKey(), count: getTodayCount() + 1 });
+
+      const currentRemainingMs = () => (state.running ? Math.max(0, state.endAt - Date.now()) : state.remainingMs);
+
+      const formatMs = (ms) => {
+        const total = Math.ceil(ms / 1000);
+        return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+      };
+
+      const render = () => {
+        const remaining = currentRemainingMs();
+        const phase = PHASES[state.phase];
+        document.documentElement.style.setProperty("--phase-color", phase.color);
+        $("phase").textContent =
+          phase.label + (state.running ? "" : remaining < phaseDurationMs(state.phase) ? "(一時停止中)" : "");
+        $("remaining").textContent = formatMs(remaining);
+        const ratio = 1 - remaining / phaseDurationMs(state.phase);
+        $("progress").style.strokeDasharray = String(CIRCUMFERENCE);
+        $("progress").style.strokeDashoffset = String(CIRCUMFERENCE * (1 - Math.min(1, Math.max(0, ratio))));
+        $("dots").textContent =
+          "●".repeat(state.cycleDone) + "○".repeat(Math.max(0, settings.longEvery - state.cycleDone));
+        $("start").textContent = state.running ? "一時停止" : "開始";
+        $("today-count").textContent = String(getTodayCount());
+        document.title = state.running ? `${formatMs(remaining)} ${phase.label} - ポモドーロ` : "ポモドーロ";
+      };
+
+      const updateWakeLock = async () => {
+        try {
+          if (state.running && settings.keepAwake && wakeLock.isSupported()) await wakeLock.enable();
+          else await wakeLock.disable();
+        } catch (error) {
+          console.error(error);
+        }
+      };
+
+      const notify = (title, body) => {
+        window.MiniApps.playChime(settings.volume / 100, PHASES[state.phase].chime);
+        if (
+          "Notification" in window &&
+          Notification.permission === "granted" &&
+          document.visibilityState !== "visible"
+        ) {
+          new Notification(title, { body, tag: "pomodoro" });
+        }
+      };
+
+      const start = () => {
+        if (state.running) return;
+        state.running = true;
+        state.endAt = Date.now() + state.remainingMs;
+        state.tickId = setInterval(tick, 250);
         updateWakeLock();
+        render();
+      };
+
+      const pause = () => {
+        if (!state.running) return;
+        state.remainingMs = currentRemainingMs();
+        state.running = false;
+        clearInterval(state.tickId);
+        updateWakeLock();
+        render();
+      };
+
+      /** 次のフェーズへ進む。completed=false はスキップ(作業回数に数えない) */
+      const advance = (completed) => {
+        const wasRunning = state.running;
+        pause();
+        if (state.phase === "work") {
+          if (completed) incrementTodayCount();
+          state.cycleDone++;
+          state.phase = state.cycleDone >= settings.longEvery ? "long" : "short";
+        } else {
+          if (state.phase === "long") state.cycleDone = 0;
+          state.phase = "work";
+        }
+        state.remainingMs = phaseDurationMs(state.phase);
+        if (completed) {
+          const next = PHASES[state.phase].label;
+          notify(`${next}の時間です`, `${formatMs(state.remainingMs)} の${next}`);
+          $("status").textContent =
+            `${new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })} ${next}になりました`;
+        }
+        if (settings.autoStart && (completed ? true : wasRunning)) start();
+        render();
+      };
+
+      const tick = () => {
+        if (currentRemainingMs() <= 0) advance(true);
+        else render();
+      };
+
+      const reset = () => {
+        pause();
+        state.phase = "work";
+        state.cycleDone = 0;
+        state.remainingMs = phaseDurationMs("work");
+        $("status").textContent = "スペースキーで開始/一時停止";
+        render();
+      };
+
+      // ---------------------------------------------------------------- 設定
+
+      const NUMBER_FIELDS = [
+        ["work-min", "workMin", 1, 180],
+        ["short-min", "shortMin", 1, 60],
+        ["long-min", "longMin", 1, 120],
+        ["long-every", "longEvery", 2, 12],
+      ];
+      NUMBER_FIELDS.forEach(([id, key, min, max]) => {
+        $(id).value = String(settings[key]);
+        $(id).addEventListener("change", () => {
+          const value = Number($(id).value);
+          settings[key] = Number.isInteger(value) && value >= min && value <= max ? value : DEFAULT_SETTINGS[key];
+          $(id).value = String(settings[key]);
+          writeJson(SETTINGS_KEY, settings);
+          render();
+        });
       });
-    });
-    $("keep-awake").disabled = !wakeLock.isSupported();
-    $("volume").value = String(settings.volume);
-    $("volume-value").textContent = String(settings.volume);
-    $("volume").addEventListener("input", () => {
-      settings.volume = Number($("volume").value);
+      // 時間を変えたときは、止まっているタイマーを新しい長さで測り直す
+      ["work-min", "short-min", "long-min"].forEach((id) =>
+        $(id).addEventListener("change", () => {
+          if (!state.running) {
+            state.remainingMs = phaseDurationMs(state.phase);
+            render();
+          }
+        }),
+      );
+      [
+        ["auto-start", "autoStart"],
+        ["keep-awake", "keepAwake"],
+      ].forEach(([id, key]) => {
+        $(id).checked = settings[key];
+        $(id).addEventListener("change", () => {
+          settings[key] = $(id).checked;
+          writeJson(SETTINGS_KEY, settings);
+          updateWakeLock();
+        });
+      });
+      $("keep-awake").disabled = !wakeLock.isSupported();
+      $("volume").value = String(settings.volume);
       $("volume-value").textContent = String(settings.volume);
-    });
-    $("volume").addEventListener("change", () => writeJson(SETTINGS_KEY, settings));
-    $("volume-test").addEventListener("click", () => window.MiniApps.playChime(settings.volume / 100, PHASES.work.chime));
+      $("volume").addEventListener("input", () => {
+        settings.volume = Number($("volume").value);
+        $("volume-value").textContent = String(settings.volume);
+      });
+      $("volume").addEventListener("change", () => writeJson(SETTINGS_KEY, settings));
+      $("volume-test").addEventListener("click", () =>
+        window.MiniApps.playChime(settings.volume / 100, PHASES.work.chime),
+      );
 
-    const updateNotifyButton = () => {
-      const button = $("notify-permission");
-      if (!("Notification" in window)) {
-        button.hidden = true;
-      } else if (Notification.permission === "granted") {
-        button.disabled = true;
-        button.textContent = "デスクトップ通知: 許可済み";
-      } else if (Notification.permission === "denied") {
-        button.disabled = true;
-        button.textContent = "デスクトップ通知: ブロック中(ブラウザの設定から変更)";
-      }
-    };
-    $("notify-permission").addEventListener("click", async () => {
-      await Notification.requestPermission();
+      const updateNotifyButton = () => {
+        const button = $("notify-permission");
+        if (!("Notification" in window)) {
+          button.hidden = true;
+        } else if (Notification.permission === "granted") {
+          button.disabled = true;
+          button.textContent = "デスクトップ通知: 許可済み";
+        } else if (Notification.permission === "denied") {
+          button.disabled = true;
+          button.textContent = "デスクトップ通知: ブロック中(ブラウザの設定から変更)";
+        }
+      };
+      $("notify-permission").addEventListener("click", async () => {
+        await Notification.requestPermission();
+        updateNotifyButton();
+      });
       updateNotifyButton();
-    });
-    updateNotifyButton();
 
-    // ---------------------------------------------------------------- 操作
+      // ---------------------------------------------------------------- 操作
 
-    $("start").addEventListener("click", () => (state.running ? pause() : start()));
-    $("skip").addEventListener("click", () => advance(false));
-    $("reset").addEventListener("click", reset);
-    window.addEventListener("keydown", (event) => {
-      if (event.key !== " " || event.target.matches("input, select, textarea")) return;
-      // ボタンにフォーカスがあるときのクリック二重発火・スクロールを防ぐ
-      event.preventDefault();
-      if (!event.repeat) state.running ? pause() : start();
-    });
-    window.addEventListener("keyup", (event) => {
-      if (event.key === " " && !event.target.matches("input, select, textarea")) event.preventDefault();
-    });
-    // タブが裏にあるとタイマーが間引かれるため、戻ったときにすぐ反映する
-    document.addEventListener("visibilitychange", () => state.running && tick());
+      $("start").addEventListener("click", () => (state.running ? pause() : start()));
+      $("skip").addEventListener("click", () => advance(false));
+      $("reset").addEventListener("click", reset);
+      window.addEventListener("keydown", (event) => {
+        if (event.key !== " " || event.target.matches("input, select, textarea")) return;
+        // ボタンにフォーカスがあるときのクリック二重発火・スクロールを防ぐ
+        event.preventDefault();
+        if (!event.repeat) state.running ? pause() : start();
+      });
+      window.addEventListener("keyup", (event) => {
+        if (event.key === " " && !event.target.matches("input, select, textarea")) event.preventDefault();
+      });
+      // タブが裏にあるとタイマーが間引かれるため、戻ったときにすぐ反映する
+      document.addEventListener("visibilitychange", () => state.running && tick());
 
-    render();
-  </script>
-</body>
-
+      render();
+    </script>
+  </body>
 </html>

@@ -73,7 +73,9 @@ copyDir(SRC_DIR, OUT_DIR);
 const problems = verify(OUT_DIR);
 if (problems.length) {
   console.error(problems.join("\n"));
-  console.error("\n公開してはいけないファイル・参照が残っています。`// @local-only` の付け忘れがないか確認してください");
+  console.error(
+    "\n公開してはいけないファイル・参照が残っています。`// @local-only` の付け忘れがないか確認してください",
+  );
   process.exit(1);
 }
 console.info(`built: ${path.relative(process.cwd(), OUT_DIR) || OUT_DIR}`);
